@@ -1,15 +1,32 @@
-# BeeKeeper
+<p align="center">
+  <img src="docs/banner.png" alt="BeeKeeper: your Claude Code chats and agents as little pixel workers" width="100%">
+</p>
 
-Your Claude Code chats and agents as little pixel workers, with a pixel-art room for each project.
+<p align="center">
+  <b>See who is working, who is waiting for you and who fell asleep.</b><br>
+  Open BeeKeeper next to your work. Every Claude Code chat walks into the pixel room of its project.
+</p>
 
-Open BeeKeeper next to your work. Every chat you have running walks into the room of its project. When Claude calls an agent, the agent walks in too. You can see at a glance who is working, who is waiting for you and who fell asleep.
+<p align="center">
+  <img src="docs/hive.gif" alt="The hive: one pixel room per project, workers with speech bubbles" width="70%">
+</p>
+
+## When Claude calls an agent, it steps into the room
+
+<p align="center">
+  <img src="docs/room.gif" alt="An agent walks into the room of its project" width="70%">
+</p>
 
 ## What you get
 
 - **Hive:** one room per project, one worker per chat, a speech bubble with what it is doing right now.
 - **Agents:** every agent found in your Claude folders, with its record: calls, projects, last jobs.
+
 - **Skills:** your skills with how often you used them.
 - **Studio:** pick which character plays each agent, pick a room for each project, or draw your own.
+
+
+<p align="center"><img src="docs/agents.png" alt="The Agents tab: every agent with its record" width="80%"></p>
 
 Everything is pixel art.
 
@@ -18,7 +35,7 @@ Everything is pixel art.
 You need Node 20 or newer.
 
 ```bash
-git clone <this repository>
+git clone https://github.com/ranucho/beekeeper.git
 cd beekeeper
 npm install
 npm run dev

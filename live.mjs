@@ -31,7 +31,9 @@ function tailLines(file) {
 function projectName(cwd) {
   if (!cwd) return null;
   const m = cwd.split(WORKSPACE)[1];
-  return (m ? m.split('/')[0] : path.basename(cwd)) || path.basename(cwd);
+  if (m) return m.split('/')[0] || path.basename(cwd);
+  for (let d = cwd; d !== path.dirname(d); d = path.dirname(d)) if (drawnRooms().has(path.basename(d))) return path.basename(d);   // a sub-folder of a project that has a room goes to that room
+  return path.basename(cwd);
 }
 
 // tool names in plain words, for when a chat has no step list
@@ -177,6 +179,15 @@ export function projectDirs() {
   try { for (const folder of fs.readdirSync(CLAUDE_DIR)) { const c = cwdOfFolder(folder); if (c && !JUNK_CWD.test(c) && c !== os.homedir() && fs.existsSync(c)) dirs.add(c); } } catch {}
   return [...dirs];
 }
+// Projects that have room art (public/sprites/rooms/index.json), read at most once a minute
+let roomsCache = { at: 0, names: new Set() };
+function drawnRooms() {
+  if (Date.now() - roomsCache.at > 60000) {
+    let names = new Set(); try { names = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(path.dirname(new URL(import.meta.url).pathname.replace(/%20/g, ' ')), 'public/sprites/rooms/index.json'), 'utf8')))); } catch {}
+    roomsCache = { at: Date.now(), names };
+  }
+  return roomsCache.names;
+}
 export function listProjects() {
   const out = new Map();
   let dirs = []; try { dirs = fs.readdirSync(WORKSPACE_DIR).filter(d => /^\d\d /.test(d) && fs.statSync(path.join(WORKSPACE_DIR, d)).isDirectory()); } catch {}
@@ -192,8 +203,9 @@ export function listProjects() {
       else if (dirs.length && folder.startsWith(enc(WORKSPACE_DIR) + '-') && !/scratchpad|-tmp-|-\.|node-modules/i.test(folder)) { const name = folder.slice(enc(WORKSPACE_DIR).length + 1).replace(/-/g, ' '); p = { name, path: null, lastActivity: null }; out.set(name, p); }
       else {                                                    // any other folder Claude Code was used in: its own room, named after the folder
         const cwd = cwdOfFolder(folder);
-        if (dirs.length || !cwd || JUNK_CWD.test(cwd) || cwd === os.homedir() || Date.now() - latest > RECENT_MS) continue;   // with numbered project folders (the author's workspace) chats outside it are not projects
+        if (!cwd || JUNK_CWD.test(cwd) || cwd === os.homedir() || Date.now() - latest > RECENT_MS) continue;
         const name = projectName(cwd);
+        if (dirs.length && !drawnRooms().has(name)) continue;   // with numbered project folders (the author's workspace) a chat outside it is a project only once its room is drawn
         p = out.get(name) || { name, path: null, lastActivity: null }; out.set(name, p);
       }
     }

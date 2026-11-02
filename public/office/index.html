@@ -1227,7 +1227,9 @@ function drawRooms() {
     const w = im.width * f, h = im.height * f;
     if (off) ctx.filter = 'grayscale(1) opacity(0.45)';
     ctx.globalAlpha = r.fade; const s = 0.8 + 0.2 * r.fade;   // shrinks toward the room's centre
+    ctx.imageSmoothingEnabled = im.width > room.width * 1.5;   // a full-quality room picture is scaled smoothly; pixel rooms stay sharp
     ctx.drawImage(im, Math.round(o.x + (room.width - w * s) / 2 * z), Math.round(o.y + (room.height - h * (1 + s) / 2) * z), w * s * z, h * s * z);
+    ctx.imageSmoothingEnabled = false;
     ctx.globalAlpha = 1; ctx.filter = 'none';
     shown.push([r, o, off]);
   }
