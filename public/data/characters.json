@@ -1,0 +1,19 @@
+[
+  { "id": "claude", "name": "Claude", "role": "The main helper" },
+  { "id": "visual-agent", "name": "Mika Solis", "role": "Visual designer" },
+  { "id": "ux-agent", "name": "Felix Moreau", "role": "UX strategist" },
+  { "id": "ui-agent", "name": "Lena Kovac", "role": "UI architect" },
+  { "id": "brand-agent", "name": "Arlo Venn", "role": "Brand strategist" },
+  { "id": "ui-ux-designer", "name": "Zara Lindstrom", "role": "Design director" },
+  { "id": "i18n-agent", "name": "Yael Adler", "role": "Languages and right-to-left" },
+  { "id": "code-builder", "name": "Marcus Cole", "role": "Builder" },
+  { "id": "test-writer", "name": "Rina Patel", "role": "Test engineer" },
+  { "id": "linter", "name": "Kit Tanaka", "role": "Code quality" },
+  { "id": "qa-auditor", "name": "Daniel Marchetti", "role": "QA auditor" },
+  { "id": "doc-updater", "name": "Sam Okafor", "role": "Documentation" },
+  { "id": "Explore", "name": "Nova Chen", "role": "Codebase scout" },
+  { "id": "Plan", "name": "Iris Nakamura", "role": "Systems architect" },
+  { "id": "general-purpose", "name": "Theo Vasquez", "role": "Generalist" },
+  { "id": "claude-code-guide", "name": "Eli Frost", "role": "Knowledge navigator" },
+  { "id": "statusline-setup", "name": "Sage Park", "role": "Status line curator" }
+]

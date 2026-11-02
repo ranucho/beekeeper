@@ -1,0 +1,326 @@
+{
+  "groups": [
+    {
+      "id": "design",
+      "name": "Design and UI",
+      "blurb": "Make screens, pages and brand pieces look designed."
+    },
+    {
+      "id": "qa",
+      "name": "Design checks",
+      "blurb": "Catch what is wrong before you see it."
+    },
+    {
+      "id": "motion",
+      "name": "Motion",
+      "blurb": "Animation that feels right."
+    },
+    {
+      "id": "video",
+      "name": "Video",
+      "blurb": "Videos built from code, cut and directed."
+    },
+    {
+      "id": "ship",
+      "name": "Ship and publish",
+      "blurb": "Commit, deploy and tell the world."
+    },
+    {
+      "id": "plan",
+      "name": "Plan and run work",
+      "blurb": "Decide what to do and run it in order."
+    },
+    {
+      "id": "code",
+      "name": "Code quality",
+      "blurb": "Tests, reviews and the paperwork around code."
+    },
+    {
+      "id": "setup",
+      "name": "Setup and learning",
+      "blurb": "Start projects right and remember lessons."
+    }
+  ],
+  "skills": {
+    "design": {
+      "group": "design",
+      "text": "Logos, brand identity, banners, icons and social images, all in one big design kit."
+    },
+    "design-system": {
+      "group": "design",
+      "text": "Builds a set of colours, sizes and parts that every screen reuses."
+    },
+    "ui-styling": {
+      "group": "design",
+      "text": "Styles app screens with ready-made, accessible parts."
+    },
+    "banner-design": {
+      "group": "design",
+      "text": "Banners for ads, social posts and website tops, in several art directions."
+    },
+    "brand": {
+      "group": "design",
+      "text": "Keeps the voice, look and messages of a brand consistent."
+    },
+    "frontend-design": {
+      "group": "design",
+      "text": "Builds web pages that look designed, not generic."
+    },
+    "impeccable": {
+      "group": "design",
+      "text": "24 design commands plus a checker that spots the cheap AI look."
+    },
+    "oiloil-ui-ux-guide": {
+      "group": "design",
+      "text": "Clean, simple UI advice and reviews of screens."
+    },
+    "ui-ux-pro-max": {
+      "group": "design",
+      "text": "A big library of styles, palettes and font pairs to pick from."
+    },
+    "web-design-guidelines": {
+      "group": "design",
+      "text": "Checks a UI against well-known web interface rules."
+    },
+    "design-dna": {
+      "group": "design",
+      "text": "Reads the style out of reference images and reuses it on new work."
+    },
+    "theme-factory": {
+      "group": "design",
+      "text": "Ten ready themes to dress slides, docs and pages."
+    },
+    "slides": {
+      "group": "design",
+      "text": "Builds web slide decks with charts and strong copy."
+    },
+    "algorithmic-art": {
+      "group": "design",
+      "text": "Generative art made with code."
+    },
+    "slack-gif-creator": {
+      "group": "design",
+      "text": "Small animated GIFs sized for Slack."
+    },
+    "design-qa": {
+      "group": "qa",
+      "text": "Your house design rules: one entry point that checks a screen before you look."
+    },
+    "design-review": {
+      "group": "qa",
+      "text": "Several design reviewers look at once and agree on one honest verdict."
+    },
+    "pixel-perfect": {
+      "group": "qa",
+      "text": "Matches a build to a reference image, pixel by pixel."
+    },
+    "break-ui": {
+      "group": "qa",
+      "text": "Feeds a screen the worst data (long names, empty lists) to see what breaks."
+    },
+    "animate": {
+      "group": "motion",
+      "text": "Builds one animation from scratch, decision by decision."
+    },
+    "animation-principles": {
+      "group": "motion",
+      "text": "Timing, easing and bounce so motion feels natural."
+    },
+    "animation-vocabulary": {
+      "group": "motion",
+      "text": "Tells you the right name for an effect you can only describe."
+    },
+    "review-animations": {
+      "group": "motion",
+      "text": "A strict review of animation against a high craft bar."
+    },
+    "improve-animations": {
+      "group": "motion",
+      "text": "Audits all the motion in an app and plans the fixes."
+    },
+    "find-animation-opportunities": {
+      "group": "motion",
+      "text": "Finds places that should move, and rejects the ones that shouldn't."
+    },
+    "motion-art-direction": {
+      "group": "motion",
+      "text": "Sets the tone, pace and motion language of a whole video."
+    },
+    "remotion-best-practices": {
+      "group": "video",
+      "text": "The starting point that routes to the right Remotion skill."
+    },
+    "remotion-create": {
+      "group": "video",
+      "text": "Starts a new video project in Remotion."
+    },
+    "remotion-motion-graphics": {
+      "group": "video",
+      "text": "Motion graphics videos that don't look basic."
+    },
+    "remotion-captions": {
+      "group": "video",
+      "text": "Writes, shows and animates captions."
+    },
+    "remotion-render": {
+      "group": "video",
+      "text": "Exports the finished video."
+    },
+    "remotion-studio": {
+      "group": "video",
+      "text": "Opens the preview to watch a video while it's built."
+    },
+    "remotion-markup": {
+      "group": "video",
+      "text": "Best practice for content, animation and effects in a video."
+    },
+    "remotion-interactivity": {
+      "group": "video",
+      "text": "Sets up a video so parts of it can be clicked or edited."
+    },
+    "remotion-maps": {
+      "group": "video",
+      "text": "Animated maps."
+    },
+    "remotion-multimedia": {
+      "group": "video",
+      "text": "Reads and converts audio and video files."
+    },
+    "remotion-saas": {
+      "group": "video",
+      "text": "Builds an app around Remotion videos."
+    },
+    "remotion-docs": {
+      "group": "video",
+      "text": "Looks up the Remotion manual."
+    },
+    "remotion-upgrade": {
+      "group": "video",
+      "text": "Updates Remotion to a newer version."
+    },
+    "video-shotcraft": {
+      "group": "video",
+      "text": "Cinematic product videos from 157 ready shot recipes."
+    },
+    "shot-composition": {
+      "group": "video",
+      "text": "Frames each shot: grid, focus point, safe areas, camera."
+    },
+    "beat-sync-editing": {
+      "group": "video",
+      "text": "Cuts to the beat and fixes pacing."
+    },
+    "video-to-script": {
+      "group": "video",
+      "text": "Watches a reference video and writes a script to rebuild it."
+    },
+    "take-one": {
+      "group": "video",
+      "text": "Turns a short request into a finished short film, like a studio of twelve."
+    },
+    "git-committer": {
+      "group": "ship",
+      "text": "Clean commit messages and a safe push."
+    },
+    "autopilot": {
+      "group": "plan",
+      "text": "Runs one task start to finish on its own, with every check."
+    },
+    "go": {
+      "group": "plan",
+      "text": "Runs a known plan through nine checks."
+    },
+    "preflight": {
+      "group": "plan",
+      "text": "Checks a plan against the code and past lessons before building."
+    },
+    "mode-selector": {
+      "group": "plan",
+      "text": "Six questions that decide how heavy a task's process should be."
+    },
+    "task-selector": {
+      "group": "plan",
+      "text": "Picks the next task from the roadmap."
+    },
+    "whats-next": {
+      "group": "plan",
+      "text": "Reads the status and writes a plan for the next task."
+    },
+    "plan-annotate": {
+      "group": "plan",
+      "text": "Walks you through a plan section by section for your OK."
+    },
+    "plan-reviewer": {
+      "group": "plan",
+      "text": "One reviewer argues for a plan, another against, then scores it."
+    },
+    "strategic-discovery": {
+      "group": "plan",
+      "text": "Turns a raw idea into a full project blueprint."
+    },
+    "challenge-research": {
+      "group": "plan",
+      "text": "Checks AI research claims against real sources."
+    },
+    "blueprint-syncer": {
+      "group": "plan",
+      "text": "Checks that the plan still matches the code."
+    },
+    "adr-checker": {
+      "group": "plan",
+      "text": "Writes down big technical decisions when one was made."
+    },
+    "code-reviewer": {
+      "group": "code",
+      "text": "Reviews code for security, speed and quality."
+    },
+    "fix-tests": {
+      "group": "code",
+      "text": "Fixes failing tests, one helper per test file."
+    },
+    "tdd-completer": {
+      "group": "code",
+      "text": "A checklist for writing tests before code."
+    },
+    "verify": {
+      "group": "code",
+      "text": "Audits whether the process steps were really followed."
+    },
+    "doc-guardian": {
+      "group": "code",
+      "text": "Keeps the project docs in sync after each commit."
+    },
+    "doc-verify": {
+      "group": "code",
+      "text": "Re-reads the tracking docs and reports pass or fail."
+    },
+    "setup-project": {
+      "group": "setup",
+      "text": "Creates a new project's folders and starting files."
+    },
+    "setup-hooks": {
+      "group": "setup",
+      "text": "Installs the automatic checks that run while Claude works."
+    },
+    "setup-claude-hierarchical": {
+      "group": "setup",
+      "text": "Sets up the instruction files Claude reads in each folder."
+    },
+    "skill-creator": {
+      "group": "setup",
+      "text": "Makes and improves skills like these."
+    },
+    "apply-insights": {
+      "group": "setup",
+      "text": "Turns your usage report's advice into real rule changes."
+    },
+    "apply-lessons": {
+      "group": "setup",
+      "text": "Re-reads past lessons at the start of a session."
+    },
+    "learn-from-mistake": {
+      "group": "setup",
+      "text": "Writes down a lesson after you correct Claude."
+    }
+  }
+}

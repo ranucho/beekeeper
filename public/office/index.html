@@ -1,0 +1,1446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BeeKeeper</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png?v=2">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="apple-mobile-web-app-title" content="BeeKeeper">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#eef0f4">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Silkscreen:wght@400;700&family=VT323&family=Press+Start+2P&family=DotGothic16&family=Tiny5&family=Jersey+10&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #eef0f4; --card: #ffffff; --ink: #1c1d22; --muted: #5d6170; --line: #d9dce3; --accent: #7c5cff; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 -apple-system, "SF Pro Text", "Segoe UI", sans-serif; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; cursor: grab; image-rendering: pixelated; }
+  canvas.dragging { cursor: grabbing; }
+  .hud { position: fixed; left: 16px; top: 16px; display: flex; gap: 8px; align-items: center; z-index: 3; }   /* above the side list, so the Rooms menu is never covered */
+  select { height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-weight: 600; }
+  button, .chip { height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.on { background: #efeaff; border-color: #c9bcff; color: #4b2fd6; }
+  .chip { display: flex; align-items: center; color: var(--muted); font-weight: 500; cursor: default; }
+  .side { position: fixed; right: 16px; top: 16px; width: 250px; display: flex; flex-direction: column; gap: 6px; z-index: 2; max-height: calc(100vh - 32px); overflow: auto; }
+  .side .head { font-size: 14px; color: var(--muted); font-weight: 600; padding: 4px 4px 0; }
+  .side button { height: auto; padding: 8px 12px; text-align: left; font-weight: 500; line-height: 1.3; }
+  .side button { display: flex; gap: 10px; align-items: center; }
+  .side .thumb { width: 64px; height: 58px; object-fit: contain; image-rendering: pixelated; flex: none; background: #f4f5f8; border-radius: 6px; }
+  .side .txt { min-width: 0; }
+  .side button b { display: block; font-weight: 700; }
+  .side button small { color: var(--muted); }
+  .side .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .pick { position: relative; }
+  .pick .menu { position: absolute; left: 0; top: 42px; min-width: 240px; max-height: calc(100vh - 80px); overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 4px; }
+  .pick .menu button { display: flex; align-items: center; gap: 8px; width: 100%; height: 30px; padding: 0 10px; border: 0; box-shadow: none; border-radius: 6px; font-weight: 500; text-align: left; white-space: nowrap; }
+  .pick .menu button:hover, .pick .menu button.on { background: #efeaff; color: #4b2fd6; }
+  .pick .menu i { width: 9px; height: 9px; flex: none; }
+  .pick .menu i.live { background: #22c55e; }
+  #zoomMenu { min-width: 170px; }
+  .pick .menu kbd { margin-left: auto; font: inherit; color: var(--muted); }
+  .pick .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+  .states { display: flex; flex-direction: column; gap: 6px; }
+  .states button { height: 34px; padding: 0 12px; font-weight: 500; text-align: left; }
+  .help { position: fixed; left: 16px; bottom: 14px; color: var(--muted); font-size: 12px; }
+  .legend { position: fixed; left: 16px; bottom: 40px; display: flex; gap: 14px; font-size: 12px; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .legend i { width: 9px; height: 9px; display: inline-block; }
+  /* the card: same pixel look as the bubbles and the Agents tab (the author, 2026-11-02): dark 3px outline with cut corners, Silkscreen titles */
+  .card { position: fixed; left: 16px; top: 64px; width: 360px; max-width: calc(100vw - 32px); max-height: calc(100vh - 128px); overflow: auto; z-index: 3; background: #fff; border: 3px solid #2a2050; border-radius: 0; clip-path: polygon(3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px), 0 3px, 3px 3px); box-shadow: inset -3px -3px 0 #e6e3f2; font: 400 16px/1.35 "Pixelify Sans", sans-serif; }
+  .card .top { display: flex; gap: 14px; padding: 16px 48px 16px 16px; background: #f4f1ff; border-bottom: 3px solid #2a2050; }
+  .card .pic { width: 104px; height: 104px; flex: none; background: #eef0f4; border: 2px solid #2a2050; overflow: hidden; display: flex; align-items: flex-end; justify-content: center; }
+  .card .pic img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+  .card .pic canvas { image-rendering: pixelated; }
+  .card h2 { margin: 2px 0 4px; font: 700 19px/1.1 "Silkscreen", monospace; }
+  .card .role { color: #4b2fd6; font-weight: 600; }
+  .card .bio { color: var(--muted); margin-top: 6px; font-size: 15px; }
+  .card.anchored { right: auto; bottom: auto; max-width: none; max-height: calc(100vh - 24px); animation: card-pop .14s ease-out; transform-origin: top right; }
+  @keyframes card-pop { from { opacity: 0; transform: scale(.94); } }
+  .card .x { position: absolute; right: 10px; top: 10px; height: 28px; width: 28px; padding: 0; border: 2px solid #2a2050; border-radius: 0; background: #fff; box-shadow: inset -2px -2px 0 #e6e3f2; color: #2a2050; font: 700 15px/1 "Silkscreen", monospace; }
+  .card .x:hover { background: #efeaff; color: #2a2050; border-color: #2a2050; }
+  .card section { padding: 12px 16px; border-top: 2px solid #e6e3f2; }
+  .card .top + section { border-top: 0; }
+  .card h3 { margin: 0 0 8px; font: 700 13px "Silkscreen", monospace; letter-spacing: .04em; color: #2a2050; }
+  .card dl { display: grid; grid-template-columns: 96px 1fr; gap: 4px 10px; margin: 0; }
+  .card dt { color: var(--muted); }
+  .card dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  .card .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .card .chips span { background: #fff; border: 2px solid #2a2050; padding: 1px 6px; font: 700 11px/1.4 "Silkscreen", monospace; }
+  .card .nums { display: flex; gap: 18px; margin-bottom: 8px; }
+  .card .nums b { display: block; font: 700 21px "Silkscreen", monospace; }
+  .card .nums small { color: var(--muted); }
+  .card ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .card li { display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; font-size: 15px; }
+  .card li time { color: var(--muted); }
+  .card li .bad { color: #dc2626; font-weight: 600; }
+  .card li .ok { color: #16a34a; }
+  .tabcol { position: relative; }
+  .tabcol #status { position: absolute; left: 0; top: 44px; white-space: nowrap; }   /* computer name sits under the tabs */
+  .tabs { display: flex; gap: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
+  .tabs button { height: 30px; border: 0; box-shadow: none; border-radius: 8px; font: 700 12px "Silkscreen", monospace; letter-spacing: .02em; }
+  .tabs button.on { background: #2a2050; color: #fff; }
+  body.not-office .office-only, body.not-office .side, body.not-office .legend, body.not-office .help { display: none !important; }
+  .view { position: fixed; inset: 0; padding: 76px 24px 48px; overflow: auto; background: var(--bg); z-index: 2; }
+  .view h1 { font: 700 26px "Silkscreen", monospace; margin: 4px 0 2px; letter-spacing: .02em; }
+  .view .lead { color: var(--muted); margin: 0 0 18px; }
+  .view h2 { font: 700 15px "Silkscreen", monospace; margin: 26px 0 4px; }
+  .view h2.gt { font-size: 34px; margin-top: 38px; text-shadow: 4px 4px 0 var(--gs); }   /* The agents: big coloured group titles with a pixel drop shadow */
+  .gt0 { color: #e2622b; --gs: #fbd9c7; }
+  .gt1 { color: #7c3aed; --gs: #e2d6fd; }
+  .gt2 { color: #0f9f6e; --gs: #c8efe0; }
+  .gt3 { color: #2563eb; --gs: #d3e0fc; }
+  .view .gblurb { color: var(--muted); margin: 0 0 12px; font-size: 13px; }
+  .px { background: var(--card); border: 3px solid #2a2050; clip-path: polygon(3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px), 0 3px, 3px 3px); box-shadow: inset -3px -3px 0 #e6e3f2; }
+  .team { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .tcard { height: auto; cursor: pointer; display: flex; flex-direction: column; text-align: left; padding: 0; font: inherit; color: inherit; }
+  .tcard:hover { box-shadow: inset -3px -3px 0 #d8d0ff; background: #fbfaff; }
+  .tcard .stage { aspect-ratio: 1 / 1; background: #eef0f4; border-bottom: 3px solid #2a2050; position: relative; overflow: hidden; }
+  .tcard .stage img { display: block; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+  .tcard .live { position: absolute; left: 8px; top: 8px; display: flex; align-items: center; gap: 6px; background: #fff; border: 2px solid #2a2050; padding: 2px 7px; font: 700 10px "Silkscreen", monospace; }
+  .tcard .live i { width: 8px; height: 8px; display: inline-block; }
+  .tcard .tb { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .tcard .tn { font: 700 18px "Silkscreen", monospace; }
+  .tcard .tr { color: #4b2fd6; font-weight: 600; margin-top: -4px; }
+  .tcard .bio { color: var(--muted); font-size: 13px; }
+  .tcard .st { display: flex; gap: 16px; font-size: 12px; color: var(--muted); }
+  .tcard .st b { color: var(--ink); font-size: 15px; margin-right: 3px; }
+  .ptags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ptags span { border: 2px solid #c9c4de; padding: 1px 6px; font-size: 12px; background: #f7f6fb; }
+  .jump { display: flex; flex-wrap: wrap; gap: 10px; position: sticky; top: -16px; padding: 8px 0; background: var(--bg); z-index: 1; }
+  .view::before { content: ''; position: fixed; left: 0; right: 0; top: 0; height: 64px; background: var(--bg); z-index: 1; }   /* the tabs sit on a solid strip, so scrolled content never shows behind them */
+  .jump a { text-decoration: none; color: var(--ink); border: 2px solid #2a2050; background: #fff; padding: 8px 14px; font: 700 16px "Silkscreen", monospace; }
+  .jump a:hover { background: #efeaff; }
+  .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+  .skill { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+  .skill .sn { font: 700 14px "Silkscreen", monospace; overflow-wrap: anywhere; }
+  .skill .sx { font-size: 13px; }
+  .skill .su { font-size: 12px; color: var(--muted); margin-top: auto; }
+  .skill .su b { color: #16a34a; }
+  .skill.unused { box-shadow: none; border-color: #b9b4cf; }
+  .skill.unused .sn { color: #5d6170; }
+  /* skill group titles: bigger, one colour per group */
+  #viewSkills h2 { font-size: 22px; margin-top: 32px; }
+  .gc-design { --gc: #7c3aed; } .gc-qa { --gc: #db2777; } .gc-motion { --gc: #c2410c; } .gc-video { --gc: #dc2626; }
+  .gc-ship { --gc: #15803d; } .gc-plan { --gc: #2563eb; } .gc-code { --gc: #0f766e; } .gc-setup { --gc: #a16207; }
+  .gc-tools { --gc: #c026d3; } .gc-other { --gc: #5d6170; }
+  #viewSkills h2 { color: var(--gc); }
+  .skills .skill .sn { color: var(--gc); }   /* each skill name in its group's colour */
+  /* Studio: a grid of every room; click one to redraw it in a new theme */
+  .rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .rcard { height: auto; padding: 0; display: flex; flex-direction: column; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+  .rcard:hover { box-shadow: inset -3px -3px 0 #d8d0ff; background: #fbfaff; }
+  .rcard .stage { aspect-ratio: 8 / 7; background: #f4f5f8; border-bottom: 3px solid #2a2050; position: relative; display: flex; align-items: center; justify-content: center; }
+  .rcard .stage img { width: 88%; height: 88%; object-fit: contain; image-rendering: pixelated; }
+  .rcard .rn { padding: 10px 12px; font: 700 13px "Silkscreen", monospace; overflow-wrap: anywhere; }
+  .rcard .flag { position: absolute; left: 8px; top: 8px; background: #fff; border: 2px solid #2a2050; padding: 2px 7px; font: 700 10px "Silkscreen", monospace; }
+  .rcard .flag.ready { background: #fde68a; }
+  .rcard .flag.error { background: #fecaca; }
+  .agrid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .acard .stage { aspect-ratio: 1; }
+  .rcard .as { display: block; margin-top: 4px; font: 400 15px/1.2 "Pixelify Sans", sans-serif; color: var(--muted); }
+  #viewStudio .lead { font: 400 19px/1.4 "Pixelify Sans", sans-serif; }
+  .sed .hint { font: 400 18px/1.35 "Pixelify Sans", sans-serif; color: var(--muted); margin: 0; }
+  .rcard.on { background: #efeaff; }
+  .cgrid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
+  .cgrid .stage { aspect-ratio: 1; }
+  .packrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .packpick { height: auto; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 4px; width: 112px; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: var(--ink); font: 600 11px "Silkscreen", monospace; cursor: pointer; }
+  .packpick:hover { background: #f4f2fb; color: var(--ink); }
+  .packpick img { width: 100%; image-rendering: pixelated; }
+  .packpick.on { background: #efeaff; }
+  .packpick.sel, .packpick.sel:hover { background: #ddd3ff; }
+  .packrow .grpname { width: 100%; margin: 8px 0 0; font: 700 18px "Silkscreen", monospace; color: var(--muted); }
+  .packrow.locked { opacity: .45; pointer-events: none; }
+  .packacts:empty { display: none; }
+  .sed-wrap { position: fixed; inset: 0; z-index: 6; background: rgba(28,29,34,.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .sed-wrap[hidden] { display: none; }
+  .sed .refrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .sed .refthumbs { display: contents; }
+  .sed .refthumb { position: relative; width: 92px; height: 70px; }
+  .sed .refthumb img { width: 100%; height: 100%; object-fit: cover; border: 2px solid #2a2050; }
+  .sed .refx { position: absolute; top: -9px; right: -9px; width: 24px; height: 24px; padding: 0; border: 2px solid #2a2050; border-radius: 0; background: #fff; color: #2a2050; font: 700 13px/1 "Silkscreen", monospace; box-shadow: none; clip-path: none; cursor: pointer; }
+  .sed .refx:hover { background: #efeaff; color: #2a2050; border-color: #2a2050; }
+  .sed .refrow input[type=file] { display: none; }
+  .sed .genbar.busy .pickref { display: none !important; }
+  .sed .genbar { flex-basis: 100%; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  /* "Try as new user": the welcome card and the preview bar */
+  .welcome { width: min(640px, 100%); gap: 4px; }
+  .welcome .intro { color: var(--muted); margin: 2px 0 8px; font: 400 18px/1.35 "Pixelify Sans", sans-serif; }
+  .welcome .step { border-top: 2px solid var(--line); padding: 14px 0 10px; display: flex; flex-direction: column; gap: 8px; }
+  .welcome h3 { margin: 0; font: 700 24px "Silkscreen", monospace; color: #2a2050; }
+  .welcome p { margin: 0; font: 400 17px/1.35 "Pixelify Sans", sans-serif; color: var(--muted); }
+  .welcome a { color: #4b2fd6; font-weight: 600; }
+  .welcome .row { display: flex; gap: 8px; }
+  .welcome input[type=password] { flex: 1; min-width: 0; height: 36px; padding: 0 12px; border: 2px solid var(--line); border-radius: 8px; font: inherit; }
+  .welcome input[type=password]:focus { outline: none; border-color: var(--accent); }
+  .welcome .msg { font: 400 17px "Pixelify Sans", sans-serif; }
+  .welcome .msg.ok { color: #15803d; } .welcome .msg.bad { color: #b91c1c; }
+  .welcome .styles { display: flex; flex-wrap: wrap; gap: 6px; }
+  .welcome .styles button { height: 32px; padding: 0 12px; }
+  .welcome textarea { min-height: 64px; }
+  .sed.hello { overflow-x: hidden; width: min(980px, 100%); align-items: center; text-align: center; padding: 44px 36px 40px; gap: 14px; }
+  .sed.hello .hbox { width: fit-content; max-width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 14px; }   /* the title sets the content width: the agents never go past it */
+  .sed.hello .logorow { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 6px; width: 100%; min-height: 142px; }   /* seven items, equal gaps */
+  .sed.hello .cast { display: contents; }
+  .sed.hello .cast canvas { image-rendering: pixelated; }
+  .sed.hello .logo { width: 94px; height: 94px; image-rendering: pixelated; margin-bottom: 14px; }
+  .sed.hello h1 { margin: 0; font: 700 clamp(30px, 5.4vw, 52px)/1.1 "Silkscreen", monospace; color: #2a2050; }
+  .sed.hello p { font: 400 20px/1.4 "Pixelify Sans", sans-serif; max-width: 600px; margin: 0; }
+  .sed.hello p.intro { margin: 8px 0 6px; font-size: 30px; line-height: 1.3; max-width: 780px; }
+  .sed.hello .acts { justify-content: center; margin-top: 12px; }
+  .sed.hello .acts .main { height: 58px; padding: 0 44px; font: 700 22px "Silkscreen", monospace; }
+  @media (max-width: 700px) { .sed.hello h1 { font-size: 30px; } .sed.hello { padding: 32px 20px 28px; } .sed.hello .cast { display: none; } }
+  .stbar { margin: 0 0 22px; }
+  .keyblk { border: 2px solid var(--line); background: #fff; padding: 14px 16px; margin: 0 0 22px; display: flex; flex-direction: column; gap: 8px; max-width: 760px; }
+  .keyblk .kt { font: 700 18px "Silkscreen", monospace; color: var(--muted); margin: 0; }
+  .keyblk p { margin: 0; font: 400 17px/1.35 "Pixelify Sans", sans-serif; color: var(--muted); }
+  .keyblk .krow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .keyblk input { flex: 1; min-width: 200px; height: 42px; padding: 0 12px; border: 2px solid var(--line); border-radius: 0; font: 15px -apple-system, "Segoe UI", sans-serif; }
+  .keyblk .kmsg { font: 400 17px "Pixelify Sans", sans-serif; }
+  .keyblk .kmsg.ok { color: #15803d; } .keyblk .kmsg.bad { color: #b91c1c; }
+  .stbar .main { background: #2a2050; color: #fff; border-color: #2a2050; box-shadow: inset -3px -3px 0 #3b2d70; }
+  .stbar .main:hover { background: #3b2d70; color: #fff; }
+  .freshbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 14px; background: #2a2050; color: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(28,29,34,.25); font: 700 12px "Silkscreen", monospace; white-space: nowrap; }
+  .freshbar[hidden] { display: none; }
+  .freshbar button { height: 30px; padding: 0 10px; font: 600 13px -apple-system, "Segoe UI", sans-serif; }
+  @media (max-width: 700px) { .freshbar { bottom: auto; top: 8px; right: 12px; left: auto; transform: none; padding-left: 10px; } .freshbar span { display: none; } }
+  .sed { position: relative; width: min(860px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .sed h2 { margin: 0; font: 700 30px "Silkscreen", monospace; padding-right: 48px; }
+  .sed .x { position: absolute; right: 14px; top: 14px; height: 32px; width: 32px; padding: 0; border: 2px solid #2a2050; border-radius: 0; background: #fff; box-shadow: inset -2px -2px 0 #e6e3f2; color: #2a2050; font: 700 15px/1 "Silkscreen", monospace; }
+  .sed .x:hover { background: #efeaff; color: #2a2050; border-color: #2a2050; }
+  .sed.wide { width: min(1060px, 100%); }
+  .sed .namefield { display: flex; flex-direction: column; gap: 6px; max-width: 460px; }
+  .sed .namefield input { height: 42px; padding: 0 12px; border: 2px solid var(--line); border-radius: 8px; font: 16px -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #fff; }
+  .sed .namefield input:focus { outline: none; border-color: var(--accent); }
+  .sed button:where(:not(.x):not(.refx):not(.packpick):not(.rcard)), .stbar button, .keyblk button { height: 42px; padding: 0 18px; border: 3px solid #2a2050; border-radius: 0; background: #fff; color: #2a2050; font: 700 13px "Silkscreen", monospace; letter-spacing: .02em; box-shadow: inset -3px -3px 0 #e6e3f2; clip-path: polygon(3px 0, calc(100% - 3px) 0, calc(100% - 3px) 3px, 100% 3px, 100% calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 100%, 3px 100%, 3px calc(100% - 3px), 0 calc(100% - 3px), 0 3px, 3px 3px); }
+  .sed button:where(:not(.x):not(.refx):not(.packpick):not(.rcard)):hover, .stbar button:hover, .keyblk button:hover { background: #efeaff; color: #2a2050; border-color: #2a2050; }
+  .sed .styles button:where(:not(.x):not(.packpick)) { height: 36px; padding: 0 12px; font-size: 12px; }
+  .sed .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .sed .pair.one { grid-template-columns: 1fr; max-width: 420px; }
+  .sed figure { margin: 0; display: flex; flex-direction: column; gap: 6px; }
+  .sed figcaption { font: 700 22px "Silkscreen", monospace; color: var(--muted); }
+  .sed .pic { aspect-ratio: 8 / 7; background: #f4f5f8; border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; }
+  .sed .pic img { width: 92%; height: 92%; object-fit: contain; image-rendering: pixelated; }
+  .sed .busy { font: 700 16px "Silkscreen", monospace; color: #4b2fd6; text-align: center; padding: 0 16px; }
+  .sed .busy.err { color: #b91c1c; font: 500 13px/1.4 -apple-system, "Segoe UI", sans-serif; }
+  .sed label { font: 700 22px "Silkscreen", monospace; color: var(--muted); }
+  .sed h3.bt { margin: 0; font: 700 22px "Silkscreen", monospace; color: var(--muted); }
+  .sed .blk { border-top: 2px solid var(--line); padding-top: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .sed .okmsg { margin: 0; font: 700 18px "Silkscreen", monospace; color: #15803d; }
+  .sed .okmsg[hidden] { display: none; }
+  .sed .resfig { max-width: 560px; margin-bottom: 22px; }
+  .sed .resacts { margin-top: 6px; }
+  .sed .pic.big { background: #f4f5f8; }
+  .sed .busy.box { border: 2px solid var(--line); background: #f4f5f8; padding: 30px 16px; line-height: 1.6; }
+  .sed .busy .sub { font: 400 18px/1.3 "Pixelify Sans", sans-serif; color: var(--muted); }
+  .sed textarea { width: 100%; min-height: 84px; resize: vertical; padding: 10px 12px; border: 2px solid var(--line); border-radius: 8px; font: 14px/1.4 -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #fff; }
+  .sed textarea:focus { outline: none; border-color: var(--accent); }
+  .sed .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sed .acts .main { background: #2a2050; color: #fff; border-color: #2a2050; box-shadow: inset -3px -3px 0 #3b2d70; }
+  .sed .acts .main:hover { background: #3b2d70; color: #fff; }
+  .sed .acts button:disabled { opacity: .5; cursor: default; }
+  .sed .warn { color: #a16207; font-size: 13px; margin: 0; }
+  @media (max-width: 700px) { .sed .pair { grid-template-columns: 1fr; } .rgrid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+  .tools { display: contents; }   /* on a desktop the controls sit in the top bar as before */
+  /* phones: tabs full width, the controls in a strip that scrolls sideways, the chats in a strip along the bottom, the card as a bottom sheet */
+  @media (max-width: 700px) {
+    .help, .legend, .side .head { display: none; }
+    .hud { left: 12px; right: 12px; top: 10px; flex-wrap: wrap; gap: 6px; }
+    .tabcol { width: 100%; display: flex; flex-direction: column; gap: 6px; }
+    .tabcol #status { position: static; height: 28px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 26px; }
+    .tabs button { flex: 1; font-size: 15px; }
+    .tools { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }   /* the author: two lines, every option visible */
+    .tools > button, .tools .pick { flex: 1 1 auto; white-space: nowrap; padding: 0 10px; }
+    .tools .pick button { width: 100%; padding: 0 10px; }
+    .pick .menu { position: fixed; left: 12px; right: 12px; top: 190px; min-width: 0; max-height: calc(100vh - 330px); }
+    .side { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: none; flex-direction: row; overflow-x: auto; overflow-y: hidden; gap: 8px; padding: 8px 12px 12px; scrollbar-width: none; }
+    .side::-webkit-scrollbar { display: none; }
+    .side button { flex: none; width: 228px; }
+    .card { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-width: none; max-height: 72vh; }
+    .view { padding: 70px 16px 40px; }
+    .view h2.gt { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud">
+  <div class="tabcol"><nav class="tabs" aria-label="Views"><button data-view="office" class="on">Hive</button><button data-view="agents">Agents</button><button data-view="skills">Skills</button><button data-view="studio" id="studioTab" hidden>Studio</button></nav>
+  <span class="chip office-only" id="status">connecting…</span></div>
+  <div class="tools office-only">
+  <div class="pick office-only"><button id="roomBtn" title="Fly to a room" aria-haspopup="listbox" aria-expanded="false">Rooms ▾</button><div class="menu" id="roomMenu" role="listbox" hidden></div></div>
+  <div class="pick office-only"><button id="zoomBtn" title="Zoom" aria-haspopup="menu" aria-expanded="false">100% ▾</button><div class="menu" id="zoomMenu" role="menu" hidden>
+    <button role="menuitem" data-zoom="in">Zoom in<kbd>+</kbd></button><button role="menuitem" data-zoom="out">Zoom out<kbd>−</kbd></button><hr>
+    <button role="menuitem" data-zoom="0.25">25%</button><button role="menuitem" data-zoom="0.5">50%</button><button role="menuitem" data-zoom="1">100%</button><button role="menuitem" data-zoom="2">200%</button><button role="menuitem" data-zoom="4">400%</button><button role="menuitem" data-zoom="8">800%</button>
+  </div></div>
+  <button class="office-only" id="fit">Fit all</button>
+  <button class="office-only" id="activeOnly" title="Hide the rooms with no chat open">Show active only</button>
+  <button class="office-only" id="colour" title="Show offline rooms in full colour">Color all rooms</button>
+  <button class="office-only" id="hideInfo" title="Show the bubbles above the agents">Show info</button>
+  </div>
+  <button id="freshBtn" title="See BeeKeeper the way someone who just installed it sees it">Try as new user</button>
+</div>
+<div class="side" id="side"></div>
+<div class="legend" id="legend"></div>
+<aside class="card" id="card" hidden></aside>
+<main class="view" id="viewAgents" hidden></main>
+<main class="view" id="viewSkills" hidden></main>
+<main class="view" id="viewStudio" hidden></main>
+<div class="sed-wrap" id="studioEd" hidden></div>
+<div class="sed-wrap" id="welcome" hidden></div>
+<div class="freshbar" id="freshBar" hidden><span>New-user preview</span><button id="fbSetup">Setup</button><button id="fbReset">Start over</button><button id="fbExit">Exit</button></div>
+<div class="help">Drag or arrow keys to pan · wheel / pinch to zoom · click a name on the right to fly to them</div>
+<script type="module">
+// ───────── setup ─────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+const ZMIN = window.innerWidth <= 700 ? 0.07 : 0.15, ZMAX = 8;   // a phone needs to zoom out further to fit all the rooms
+let zoomV = 2, zoomT = 2;             // current zoom (eases) and target zoom; any value, zoom is smooth
+let cam = { x: 100, y: 100 };
+let followId = null;                  // worker id the camera follows, or null
+let flyTo = null, roomZoomBack = null;   // flyTo = camera flight in progress (room picker, double-click, Fit all) or null; roomZoomBack = the view a second double-click returns to
+
+const ROOM_SRC = '/sprites/rooms/thai-A.cut.png';   // the author's pick 2026-10-31: Flash 2K, ~350 px room
+const ROOM_GAP = 40;   // pixels between rooms
+// Feet points inside one room (room pixels, open floor ~ x 70-140, y 95-160)
+const SPOT = { door: { x: 176, y: 292 }, front: { x: 150, y: 270 }, side: { x: 230, y: 268 }, mid: { x: 175, y: 250 }, desk: { x: 175, y: 225 } };
+// Six standing spots per room, staggered in height so the bubbles above the heads rarely overlap.
+const SLOTS = [{ x: 118, y: 262 }, { x: 236, y: 256 }, { x: 176, y: 226 }, { x: 96, y: 214 }, { x: 256, y: 208 }, { x: 176, y: 286 }];
+// More than six in a room: the next one stands on the open-floor point farthest from everyone already
+// there (floor = the diamond around 176,240), so nobody ever stands on top of someone else.
+function freeSpot(roomName) {
+  const taken = [...workers.values()].filter(w => w.room === roomName && w.spot).map(w => w.spot);
+  const free = SLOTS.find(s => !taken.some(t => t.x === s.x && t.y === s.y));
+  if (free) return free;
+  let best = null, bestD = -1;
+  for (let y = 186; y <= 296; y += 6) for (let x = 70; x <= 282; x += 6) {
+    if (Math.abs(x - 176) / 120 + Math.abs(y - 240) / 64 > 0.97) continue;
+    // how much two seated agents' bodies (~46 wide, ~52 tall) would cover each other; pick the spot with the least
+    const d = -Math.max(...taken.map(t => Math.max(0, 1 - Math.abs(t.x - x) / 46) * Math.max(0, 1 - Math.abs(t.y - y) / 52))) + 0.0001 * Math.min(...taken.map(t => Math.hypot(t.x - x, t.y - y)));   // ties: the roomiest spot
+    if (d > bestD) { bestD = d; best = { x, y }; }
+  }
+  return best;
+}
+function slotPos(roomName, spot) { const r = rooms.get(roomName); return { x: r.x + spot.x / 352 * room.width, y: r.y + spot.y / 319 * room.height }; }
+
+// ───────── "Try as new user": a sandbox with no art of the author's (starter room, Claude for every worker, rooms/_preview/) ─────────
+const FRESH = true;
+const ROOM_INDEX = FRESH ? '_preview/index.json' : 'index.json', ROOM_DEFAULT = FRESH ? 'starter.cut.png' : 'thai-A.cut.png';
+// Which of the ready-made characters plays each agent (picked in Studio, remembered in this browser).
+// Not picked: the agent's own character if it has one (the author's), the built-ins match by name, everyone else is Claude.
+const CHAR_KEY = 'bk-chars-' + (FRESH ? 'preview' : 'main');
+let CHAR_MAP = (() => { try { return JSON.parse(localStorage.getItem(CHAR_KEY) || '{}'); } catch { return {}; } })();
+const BUILTIN_CHARS = new Set(['general-purpose', 'Explore', 'Plan', 'claude-code-guide', 'statusline-setup']);
+const charOf = id => CHAR_MAP[id] || (FRESH && !BUILTIN_CHARS.has(id) ? 'claude' : id);
+const saveCharMap = () => { try { localStorage.setItem(CHAR_KEY, JSON.stringify(CHAR_MAP)); } catch {} };
+// What an agent is called on screen: the name typed in Studio, else its persona (the author's agents), else its file name made readable ("code-reviewer" → "Code reviewer").
+const NAME_KEY = 'bk-names-' + (FRESH ? 'preview' : 'main');
+let NAME_MAP = (() => { try { return JSON.parse(localStorage.getItem(NAME_KEY) || '{}'); } catch { return {}; } })();
+const saveNameMap = () => { try { localStorage.setItem(NAME_KEY, JSON.stringify(NAME_MAP)); } catch {} };
+const prettyName = id => { const t = String(id).replace(/[-_]+/g, ' ').trim(); return t.charAt(0).toUpperCase() + t.slice(1); };
+
+// ───────── assets ─────────
+let V = Date.now();                    // bumped every minute so new sprite and room art shows without a reload
+const loadImg = src => new Promise(res => { const im = new Image(); im.onload = () => res(im); im.onerror = () => { console.error('missing', src); res(null); }; im.src = src + '?v=' + V; });
+const room = await loadImg(ROOM_SRC);
+async function loadSet(id, name) {
+  const r = await fetch(`/sprites/${id}/${name}/meta.json?v=${V}`, { cache: 'no-store' }); if (!r.ok) throw new Error('no ' + id + '/' + name);
+  const meta = await r.json();
+  const frames = (await Promise.all([...Array(meta.frames)].map((_, i) => loadImg(`/sprites/${id}/${name}/c${i}.png`)))).filter(Boolean);
+  if (!frames.length) throw new Error('no frames ' + id + '/' + name);
+  return { frames, w: frames[0].width, h: frames[0].height };
+}
+// Six pixel fonts to choose from (the author picks in the menu; the choice is remembered in this browser).
+// size = base text size that reads well for that font; weight = bold weight it has.
+const FONTS = {
+  'Silkscreen':    { size: 14, bold: 700 },
+  'VT323':         { size: 22, bold: 400 },
+  'Press Start 2P':{ size: 11, bold: 400 },
+  'DotGothic16':   { size: 17, bold: 400 },
+  'Tiny5':         { size: 19, bold: 400 },
+  'Jersey 10':     { size: 22, bold: 400 },
+  'Pixelify Sans': { size: 16, bold: 700 },
+};
+let fontName = (() => { try { return localStorage.getItem('office-font'); } catch { return null; } })() || 'Silkscreen';
+fontName = 'Silkscreen';                 // the author's pick; the font menu is gone
+await Promise.all(Object.keys(FONTS).map(f => document.fonts.load(`16px "${f}"`).catch(() => null)));
+const PF = () => `"${fontName}", monospace`;
+let textScale = (() => { try { return parseFloat(localStorage.getItem('office-text')) || 1; } catch { return 1; } })();   // the size last set with the old A−/A+ buttons (removed 2026-10-31)
+const FS = () => Math.round(FONTS[fontName].size * textScale);
+const FB = () => FONTS[fontName].bold;
+const FOOT_PAD = 6;                   // every frame has 6 empty rows under the feet
+
+// breathing: upper body 1 px DOWN after clearing (no gap, no ghost)
+function exhale(img, cut = 0.62) {
+  const c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+  const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+  const ch = Math.round(img.height * cut);
+  g.drawImage(img, 0, ch, img.width, img.height - ch, 0, ch, img.width, img.height - ch);
+  g.drawImage(img, 0, 0, img.width, ch, 0, 1, img.width, ch);
+  return c;
+}
+// One character = its seven animation sets + the derived breathing frames. Sequences use only
+// the frames a set really has, so a character with fewer frames still animates.
+const pick = (n, want) => want.filter(i => i < n).length ? want.filter(i => i < n) : [0];
+async function buildChar(id) {
+  const S = {};
+  for (const n of ['walk-front', 'walk-left', 'walk-back', 'idle', 'type', 'sleep', 'wave']) S[n] = await loadSet(id, n);
+  const idleOut = exhale(S.idle.frames[0]), sleepOut = exhale(S.sleep.frames[0], 0.7);
+  S.type.frames.push(exhale(S.type.frames[0], 0.55)); const tn = S.type.frames.length;
+  return {
+    anim: {
+      'walk-front': { set: S['walk-front'], seq: pick(S['walk-front'].frames.length, [1, 3, 2, 3]), fps: 6 },
+      'walk-back':  { set: S['walk-back'],  seq: pick(S['walk-back'].frames.length, [1, 3, 2, 3]), fps: 6 },
+      'walk-left':  { set: S['walk-left'],  seq: pick(S['walk-left'].frames.length, [1, 2, 1, 2]), fps: 6 },
+      'walk-right': { set: S['walk-left'],  seq: pick(S['walk-left'].frames.length, [1, 2, 1, 2]), fps: 6, flip: true },
+      typing:       { set: S.type,          seq: tn >= 4 ? [1, 0, 2, tn - 1] : [0, tn - 1], fps: 6 },
+      wave:         { set: S.wave,          seq: pick(S.wave.frames.length, [1, 2]), fps: 3 },
+    },
+    idleFrame: now => (S.idle.frames[1] && now % 3500 < 150 ? S.idle.frames[1] : Math.floor(now / 600) % 2 ? idleOut : S.idle.frames[0]),
+    sleepFrame: now => (Math.floor(now / 1200) % 2 ? sleepOut : S.sleep.frames[0]),
+  };
+}
+const FALLBACK = 'visual-agent';
+const chars = new Map();               // id → Promise<char>
+const charReady = new Map();           // id → char (once loaded)
+function getChar(id) {
+  id = charOf(id);
+  if (!chars.has(id)) chars.set(id, buildChar(id).catch(() => buildChar(FALLBACK)).then(c => { charReady.set(id, c); return c; }));
+  return charReady.get(id) || charReady.get(FALLBACK);
+}
+await getChar(FALLBACK) || await chars.get(FALLBACK);
+
+// ───────── rooms: one picture per project (rooms/index.json), Thai room as the fallback ─────────
+let ROOM_FILES = {};
+try { ROOM_FILES = await (await fetch(`/sprites/rooms/${ROOM_INDEX}?v=${V}`, { cache: 'no-store' })).json(); } catch {}
+const roomImgs = new Map();            // file → image
+function roomImg(project) {
+  const f = ROOM_FILES[project] || ROOM_DEFAULT;
+  if (!roomImgs.has(f)) { roomImgs.set(f, null); loadImg('/sprites/rooms/' + f).then(im => im || loadImg('/api/studio/file?p=' + encodeURIComponent(f))).then(im => roomImgs.set(f, im || room)); }   // a brand-new file may not be served by the dev server for a moment: ask the API server
+  return roomImgs.get(f) || room;
+}
+const roomFile = project => '/sprites/rooms/' + (ROOM_FILES[project] || ROOM_DEFAULT);
+setInterval(() => {                                       // re-read every character and room picture once a minute
+  V = Date.now();
+  for (const id of chars.keys()) buildChar(id).then(c => charReady.set(id, c)).catch(() => {});
+  for (const f of roomImgs.keys()) loadImg('/sprites/rooms/' + f).then(im => im && roomImgs.set(f, im));
+}, 60000);
+setInterval(async () => { try { ROOM_FILES = await (await fetch(`/sprites/rooms/${ROOM_INDEX}?v=${Date.now()}`, { cache: 'no-store' })).json(); } catch {} }, FRESH ? 4000 : 30000);   // new rooms appear as they are made (fast in the preview, where they pop in one by one)
+
+// ───────── world: rooms in a row, workers inside ─────────
+const rooms = new Map();              // project name → { x, y, label }
+const workers = new Map();            // id → character
+let COLS = 6;                           // rooms per row
+// The room is an isometric block: a hexagon on screen. Rows are packed like a honeycomb, each
+// row shifted half a room and raised until the hexagons almost touch. The row step is measured
+// from the picture's own outline, so any room art packs correctly.
+function measureHive() {
+  const c = document.createElement('canvas'); c.width = room.width; c.height = room.height;
+  const g = c.getContext('2d'); g.drawImage(room, 0, 0);
+  const a = g.getImageData(0, 0, room.width, room.height).data;
+  const L = [], R = [];
+  for (let y = 0; y < room.height; y++) { let l = -1, r = -1; for (let x = 0; x < room.width; x++) if (a[(y * room.width + x) * 4 + 3] > 0) { if (l < 0) l = x; r = x; } L.push(l); R.push(r); }
+  const shiftX = (room.width + ROOM_GAP) / 2;
+  // smallest row step where a room in the next row (shifted right by half) stays clear of this one
+  let step = room.height;
+  for (let dy = Math.round(room.height * 0.3); dy < room.height; dy++) {
+    let clear = true;
+    for (let y = dy; y < room.height && clear; y++) { const yy = y - dy; if (L[y] < 0 || L[yy] < 0) continue; if (L[yy] + shiftX <= R[y] + 10) clear = false; }
+    if (clear) { step = dy; break; }
+  }
+  return { shiftX, stepY: step + 6 };
+}
+const HIVE = measureHive();
+// Phones get a portrait honeycomb: the column count that shows every room biggest on a tall screen.
+const PHONE = window.innerWidth <= 700;
+function hiveCols(n, desktop) {
+  if (!PHONE) return desktop;
+  const W = window.innerWidth - 24, H = window.innerHeight - 330;   // the space between the top bar and the chat strip
+  let best = 1, bs = 0;
+  for (let c = 1; c <= n; c++) {
+    const r = Math.ceil(n / c), w = c * (room.width + ROOM_GAP) + (r > 1 ? HIVE.shiftX : 0), h = (r - 1) * HIVE.stepY + room.height;
+    const sc = Math.min(W / w, H / h); if (sc > bs) { bs = sc; best = c; }
+  }
+  return best;
+}
+function roomAt(i) { const row = Math.floor(i / COLS), col = i % COLS; return { x: col * (room.width + ROOM_GAP) + (row % 2 ? HIVE.shiftX : 0), y: row * HIVE.stepY, row }; }
+let allColour = (() => { try { return localStorage.getItem('office-colour') === '1'; } catch { return false; } })();
+{ const b = document.getElementById('colour'); b.classList.toggle('on', allColour);
+  b.onclick = () => { allColour = !allColour; b.classList.toggle('on', allColour); try { localStorage.setItem('office-colour', allColour ? '1' : '0'); } catch {} }; }
+let hideInfo = (() => { try { return localStorage.getItem('office-hide-info') === '1'; } catch { return false; } })();   // no bubbles over the agents
+{ const b = document.getElementById('hideInfo'); b.classList.toggle('on', !hideInfo);   // "Show info": lit while the bubbles show
+  b.onclick = () => { hideInfo = !hideInfo; b.classList.toggle('on', !hideInfo); try { localStorage.setItem('office-hide-info', hideInfo ? '1' : '0'); } catch {} }; }
+let activeOnly = (() => { try { return localStorage.getItem('office-active-only') === '1'; } catch { return false; } })();   // offline rooms fade away
+{ const b = document.getElementById('activeOnly'); b.classList.toggle('on', activeOnly);
+  b.onclick = () => { activeOnly = !activeOnly; b.classList.toggle('on', activeOnly); try { localStorage.setItem('office-active-only', activeOnly ? '1' : '0'); } catch {} placeRooms(); fitAll(true); }; }
+// Each room has a home on the full map. With Active only on, the active rooms get a small honeycomb of their
+// own, centred where the full map's centre is, so they slide together; the camera then fits what's left.
+const numeric = (a, b) => a.localeCompare(b, undefined, { numeric: true });
+function placeRooms(instant) {
+  const all = [...rooms.values()];
+  for (const r of all) r.target = r.home;
+  const act = activeOnly ? all.filter(r => r.active).sort((a, b) => numeric(a.label, b.label)) : [];
+  if (act.length) {
+    const pos = compactHive(act.length);
+    const mid = ps => { const xs = ps.map(p => p.x), ys = ps.map(p => p.y); return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 }; };
+    const a = mid(all.map(r => r.home)), g = mid(pos);
+    act.forEach((r, i) => { r.target = { x: Math.round(pos[i].x + a.x - g.x), y: Math.round(pos[i].y + a.y - g.y) }; });
+  }
+  if (instant) for (const r of all) { moveRoom(r, r.target.x - r.x, r.target.y - r.y); r.fade = activeOnly && !r.active ? 0 : 1; }
+}
+// The tightest honeycomb for n rooms: grow a blob of hive cells around a few starting points (a room, the gap
+// between two, the middle of a triangle of three) and keep the one the camera can show biggest. 3 rooms = two
+// over one, centred, not a line.
+function compactHive(n) {
+  const W = room.width + ROOM_GAP, S = HIVE.stepY, R = Math.ceil(Math.sqrt(n)) + 2;
+  const cells = [];
+  for (let row = -R; row <= R; row++) for (let col = -R; col <= R; col++) cells.push({ x: col * W + (row & 1 ? HIVE.shiftX : 0), y: row * S });
+  const centres = [[W / 2, S / 3], [0, 2 * S / 3], [0, 0], [W / 2, 0], [W / 4, S / 2]];   // two-over-one triangle first: wins ties
+  const availW = canvas.clientWidth - (PHONE ? 24 : 300), availH = canvas.clientHeight - (PHONE ? 330 : 120);
+  let best = null;
+  for (const k of [1, 1.5, 2, 3, 0.75, 0.5]) for (const [cx, cy] of centres) {   // k > 1 grows wider blobs, k < 1 taller ones
+    const pick = cells.map(c => ({ c, d: Math.hypot((c.x - cx) / k, c.y - cy), e: Math.hypot(c.x - cx, c.y - cy) }))
+      .sort((a, b) => a.d - b.d || a.c.y - b.c.y || a.c.x - b.c.x).slice(0, n);
+    const xs = pick.map(p => p.c.x), ys = pick.map(p => p.c.y);
+    const scale = Math.min(availW / (Math.max(...xs) - Math.min(...xs) + room.width + 20), availH / (Math.max(...ys) - Math.min(...ys) + room.height + 20));
+    const spread = pick.reduce((t, p) => t + p.e, 0);
+    if (!best || scale > best.scale + 1e-6 || (scale > best.scale - 1e-6 && spread < best.spread - 1e-6)) best = { scale, spread, cells: pick.map(p => p.c) };
+  }
+  return best.cells.sort((a, b) => a.y - b.y || a.x - b.x);
+}
+function moveRoom(r, dx, dy) {   // people move with their room
+  if (!dx && !dy) return;
+  r.x += dx; r.y += dy;
+  for (const w of workers.values()) if (w.room === r.label) { w.pos.x += dx; w.pos.y += dy; for (const p of w.path) { p.x += dx; p.y += dy; } }
+}
+function layoutRooms(names, info = {}) {
+  let added = false;
+  COLS = hiveCols(names.length, Math.max(3, Math.ceil(Math.sqrt(names.length * 2.2))));
+  names.forEach((n, i) => {
+    if (!rooms.has(n)) { rooms.set(n, { label: n }); added = true; }
+    const r = rooms.get(n), { x, y } = roomAt(i);
+    Object.assign(r, { home: { x, y }, last: info[n]?.lastActivity || null, active: false });
+    if (r.x === undefined) { r.x = x; r.y = y; }   // after that the room glides to its target (placeRooms), people with it
+  });
+  if (added) fillRoomPick();
+}
+// ───────── room picker ─────────
+const roomBtn = document.getElementById('roomBtn'), roomMenu = document.getElementById('roomMenu');
+let pickedRoom = '';
+const roomPick = {   // the button shows the room flown to; panning clears it
+  get value() { return pickedRoom; },
+  set value(v) { pickedRoom = v; roomBtn.textContent = (v || 'Rooms') + ' ▾'; },
+};
+function fillRoomPick() {
+  if (!rooms.has(pickedRoom)) roomPick.value = '';
+  const names = [...rooms.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  roomMenu.innerHTML = names.map(n => `<button role="option" data-room="${esc(n)}" class="${n === pickedRoom ? 'on' : ''}"><i class="${rooms.get(n).active ? 'live' : ''}"></i>${esc(n)}</button>`).join('');   // green square = a chat is open in it now
+}
+const showRoomMenu = open => { roomMenu.hidden = !open; roomBtn.setAttribute('aria-expanded', open); if (open) fillRoomPick(); };
+roomBtn.onclick = e => { e.stopPropagation(); showRoomMenu(roomMenu.hidden); };
+document.addEventListener('pointerdown', e => { if (!roomMenu.parentElement.contains(e.target)) showRoomMenu(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') showRoomMenu(false); });
+roomMenu.onclick = e => {
+  const b = e.target.closest('[data-room]'); if (!b) return;
+  roomPick.value = b.dataset.room; showRoomMenu(false); flyToRoom();
+};
+function flyToRoom() {
+  const r = rooms.get(roomPick.value); if (!r) return;
+  roomZoomBack = null;
+  followId = null; renderSide();
+  if (window.innerWidth <= 700) {   // phone: fit the room between the top bar and the list at the bottom
+    const top = document.querySelector('.hud').getBoundingClientRect().bottom + 8, bottom = document.getElementById('side').getBoundingClientRect().top - 8;
+    const z = Math.max(ZMIN, Math.min(ZMAX, Math.min((canvas.clientWidth - 24) / room.width, (bottom - top) / room.height)));
+    return startFly(r.x + room.width / 2, r.y + room.height / 2 - ((top + bottom) / 2 - canvas.clientHeight / 2) / z, z);
+  }
+  const z = Math.max(ZMIN, Math.min(ZMAX, Math.min((canvas.clientWidth - 300) / (room.width * 1.15), (canvas.clientHeight - 120) / (room.height * 1.15))));
+  const sideW = document.getElementById('side').offsetWidth + 16;   // centre the room in the space left of the side list
+  startFly(r.x + room.width / 2 + sideW / 2 / z, r.y + room.height / 2, z);
+}
+// One straight flight: pan and zoom share one eased clock, and the destination slides in a straight line
+// to the middle of the screen while the zoom changes around it (no curve, no overshoot).
+function startFly(x, y, z) {
+  z = Math.max(ZMIN, Math.min(ZMAX, z)); setZoom(z);
+  flyTo = { from: { x: cam.x, y: cam.y, z: zoomV }, to: { x, y, z }, t0: performance.now(), dur: 750 };
+}
+function stepFly(now) {
+  const { from: a, to: b, t0, dur } = flyTo, p = Math.min(1, (now - t0) / dur);
+  const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;   // ease in-out
+  zoomV = Math.exp(Math.log(a.z) + (Math.log(b.z) - Math.log(a.z)) * e);
+  const k = (1 - e) * a.z / zoomV;                                       // destination's screen offset shrinks linearly
+  cam.x = b.x - (b.x - a.x) * k; cam.y = b.y - (b.y - a.y) * k;
+  if (p >= 1) { zoomV = zoomT = b.z; flyTo = null; }
+}
+function stopFly() { if (flyTo) { flyTo = null; setZoom(zoomV, null, true); } }
+const ago = iso => { if (!iso) return 'never'; const m = (Date.now() - Date.parse(iso)) / 60000; return m < 60 ? `${Math.round(m)} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
+function makeWorker(id, roomName, label) {
+  const r = rooms.get(roomName);
+  return { id, charId: 'claude', room: roomName, label, pos: { x: r.x + SPOT.door.x, y: r.y + SPOT.door.y }, path: [], state: 'walking', since: performance.now(), dir: 'down', walkT: 0, doing: '', sub: '', agents: [], next: null };
+}
+function toRoom(w, spotKey, dx = 0) { const r = rooms.get(w.room); return { x: r.x + SPOT[spotKey].x + dx, y: r.y + SPOT[spotKey].y }; }
+function enter(w) { w.spot = freeSpot(w.room); const p = slotPos(w.room, w.spot); w.pos = toRoom(w, 'door'); w.path = [p]; w.state = 'walking'; w.walkT = 0; }   // in through the front corner, straight to the spot
+
+// ───────── live mode: the picture comes from the chat logs ─────────
+const stateMap = { working: 'typing', waiting: 'waiting', asleep: 'sleep' };
+const AGENT_INFO = {};               // id → { name, role }
+try { for (const a of (await (await fetch('/api/agents')).json()).agents) AGENT_INFO[a.id] = { name: a.persona || prettyName(a.name), role: a.role || 'Agent', description: a.description || '', model: a.model, tools: a.tools, source: a.source }; } catch {}
+const BUILTIN = { Explore: 'Scout', 'general-purpose': 'Helper', Plan: 'Planner', 'claude-code-guide': 'Guide' };
+const agentName = t => NAME_MAP[t] || AGENT_INFO[t]?.name || BUILTIN[t] || prettyName(t);
+const agentRole = t => AGENT_INFO[t]?.role || (BUILTIN[t] ? `Built-in ${t} agent` : 'Agent');
+let live = null, liveError = null, lastActiveSig = null, placedOnce = false;
+async function pollLive() {
+  try {
+    const r = await fetch('/api/live', { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status);
+    live = await r.json(); liveError = null; applyLive(live);
+  } catch (e) { liveError = e.message; }
+  document.getElementById('status').textContent = liveError ? 'offline: ' + liveError : `${live.machine} · ${live.sessions.length} chats · ${new Date(live.generatedAt).toLocaleTimeString()}`;
+}
+const HIDDEN_ROOMS = new Set([]);   // the author, 2026-11-01: test projects, no room (unless a chat is live there)
+function applyLive(d) {
+  const known = (d.projects || []).map(p => p.name).filter(n => !HIDDEN_ROOMS.has(n));
+  const names = [...new Set([...known, ...d.sessions.map(s => s.project || '?')])];
+  const info = {}; for (const p of d.projects || []) info[p.name] = p;
+  layoutRooms(names, info);
+  for (const r of rooms.values()) r.active = false;
+  for (const s of d.sessions) { const r = rooms.get(s.project || '?'); if (r) r.active = true; }
+  placeRooms(!placedOnce); placedOnce = true;
+  const activeSig = [...rooms].filter(([, r]) => r.active).map(([n]) => n).join('|');
+  if (activeSig !== lastActiveSig) { lastActiveSig = activeSig; fillRoomPick(); }   // refill only on change, so an open menu isn't reset every poll
+  const seen = new Set();
+  const perRoom = {};
+  for (const s of d.sessions) {
+    const roomName = s.project || '?';
+    const slot = (perRoom[roomName] = (perRoom[roomName] || 0) + 1) - 1;
+      let w = workers.get(s.id);
+    const target = stateMap[s.state] || 'waiting';
+    if (!w) { w = makeWorker(s.id, roomName, s.title); workers.set(s.id, w); w.pending = target; enter(w); }   // a new chat walks in, once
+    else if (w.room !== roomName) { w.room = roomName; w.pending = target; enter(w); }                                 // the chat moved to another project: walks into its new room
+    else if (w.state !== 'walking' && w.state !== target) { w.state = target; w.since = performance.now(); }      // state changes in place
+    else if (w.state === 'walking') w.pending = target;
+    w.startedAt = null; w.label = 'Claude'; w.sub = s.title; w.doing = s.doing; w.next = s.next; w.agents = []; w.steps = s.steps; w.liveState = s.state;
+    seen.add(s.id);
+    // the agents this chat called: each one is a character of its own, beside the worker
+    (s.agents || []).forEach((a, j) => {
+      const id = `${s.id}:${a.type}:${a.since}`; seen.add(id);
+      let c = workers.get(id);
+      if (!c) { c = makeWorker(id, roomName, agentName(a.type)); c.kind = 'agent'; c.charId = a.type; workers.set(id, c); c.pending = 'typing'; enter(c); }
+      else if (c.room !== roomName) { c.room = roomName; c.pending = 'typing'; enter(c); }
+      c.sub = agentRole(a.type); c.doing = a.description || `Helping ${s.title}`; c.startedAt = a.since; c.chatTitle = s.title;
+    });
+  }
+  for (const [id, c] of [...workers.entries()]) if (!seen.has(id)) {
+    if (c.kind === 'agent' && c.state !== 'leaving') { c.state = 'leaving'; c.since = performance.now(); c.path = []; c.doing = 'Done'; }   // agent finished: fades out where it stands
+    else if (c.kind !== 'agent') workers.delete(id);                                                  // chat gone (2 h idle)
+  }
+  renderSide(); if (cardId) renderCard();
+  const floorSig = [...workers.values()].map(w => w.id + w.state).join('|');
+  if (view === 'agents' && floorSig !== lastFloorSig) renderAgentsView();
+  lastFloorSig = floorSig;
+}
+let lastFloorSig = '', view = 'office';   // view: the open tab (office · agents · skills)
+
+// ───────── side list ─────────
+const DOT = { typing: '#22c55e', waiting: '#f59e0b', sleep: '#94a3b8', walking: '#3b82f6', leaving: '#3b82f6', wave: '#a855f7' };
+document.getElementById('legend').innerHTML = [['typing', 'Working'], ['waiting', 'Waiting for you'], ['sleep', 'Asleep (5 min quiet)'], ['walking', 'Walking in'], ['wave', 'Reporting']].map(([k, t]) => `<span><i style="background:${DOT[k]}"></i>${t}</span>`).join('');
+function renderSide() {
+  const box = document.getElementById('side'); box.innerHTML = '';
+  const h = document.createElement('div'); h.className = 'head'; h.textContent = `${[...rooms.values()].filter(r => r.active).length} of ${rooms.size} rooms active`; box.appendChild(h);
+  // room order (01, 02 … like the rooms list); each chat's called agents right under it
+  const all = [...workers.values()], chats = all.filter(w => w.kind !== 'agent');
+  chats.sort((a, b) => a.room.localeCompare(b.room, undefined, { numeric: true }));
+  const ordered = chats.flatMap(c => [c, ...all.filter(w => w.kind === 'agent' && w.id.startsWith(c.id + ':'))]);
+  ordered.push(...all.filter(w => !ordered.includes(w)));
+  for (const w of ordered) {
+    const b = document.createElement('button'); b.className = followId === w.id ? 'on' : '';
+    b.innerHTML = `<img class="thumb" alt="" src="${roomFile(w.room)}"><span class="txt"><b><span class="dot" style="background:${DOT[w.state] || '#999'}"></span>${w.kind === 'agent' ? '↳ ' : ''}${esc(w.label)}</b><small>${esc(w.kind === 'agent' ? w.sub : w.room)} · ${esc(w.doing)}</small></span>`;
+    b.onclick = () => { followId = followId === w.id ? null : w.id; renderSide(); };
+    box.appendChild(b);
+  }
+  if (!workers.size) { const e = document.createElement('div'); e.className = 'head'; e.textContent = 'No chats active in the last 2 hours.'; box.appendChild(e); }
+}
+function ellipsis(t, max) { t = String(t ?? ''); if (ctx.measureText(t).width <= max) return t; while (t.length > 1 && ctx.measureText(t + '…').width > max) t = t.slice(0, -1); return t.trimEnd() + '…'; }
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));   // safe inside attributes too
+
+// ───────── profile card (click a character, its bubble or its name on the right) ─────────
+let HISTORY = { agents: {}, chats: {} };
+async function pollHistory() { try { HISTORY = await (await fetch('/api/history', { cache: 'no-store' })).json(); if (cardId) renderCard(); if (view === 'agents') renderAgentsView(); if (view === 'skills') renderSkillsView(); } catch {} }
+let cardId = null;
+function openCard(id) { cardId = id; renderCard(); placeCard(); }
+function placeCard() {                 // a chat or agent card opens over its bubble: its top right corner on the bubble's +
+  const el = document.getElementById('card'), b = !el.hidden && cardId && view === 'office' && workers.get(cardId)?.bubble;
+  if (!b) { if (el.classList.contains('anchored')) { el.classList.remove('anchored'); el.style.cssText = ''; } return; }
+  const vw = canvas.clientWidth, vh = canvas.clientHeight, cw = Math.min(360, vw - 24);
+  el.classList.add('anchored'); el.style.width = cw + 'px';
+  const ch = el.offsetHeight;
+  el.style.left = Math.round(Math.max(12, Math.min(vw - cw - 12, b.x + b.w - cw))) + 'px';
+  el.style.top = Math.round(Math.max(12, Math.min(vh - ch - 12, b.y))) + 'px';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && cardId) openCard(null); });
+const dayFmt = iso => { if (!iso) return ''; const d = new Date(iso), days = (Date.now() - d) / 864e5; return days < 1 ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : d.toLocaleDateString([], { day: 'numeric', month: 'short' }); };
+const forHow = iso => { if (!iso) return ''; const m = Math.max(0, (Date.now() - Date.parse(iso)) / 60000); return m < 60 ? `${Math.round(m)} min` : `${Math.floor(m / 60)} h ${Math.round(m % 60)} min`; };
+function bioOf(info, name) {           // first sentence that is not just "Role (Name)."
+  const parts = String(info?.description || '').split(/(?<=\.)\s+/).filter(p => !(name && p.includes('(' + name + ')')));
+  const b = parts[0] || ''; return b.length > 160 ? b.slice(0, 157) + '…' : b;
+}
+function spritePic(charId) {           // no painted portrait: the character's own sprite, big
+  const c = getChar(charId), img = c?.idleFrame(0); if (!img) return '';
+  const cv = document.createElement('canvas'); const k = Math.max(1, Math.floor(96 / Math.max(img.width, img.height)));
+  cv.width = img.width * k; cv.height = img.height * k; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0, cv.width, cv.height);
+  return `<img src="${cv.toDataURL()}" style="object-fit:contain;image-rendering:pixelated" alt="">`;
+}
+function portraitPic(id) {             // the same pixel close-up as on the Agents tab; the sprite when there is none
+  const fb = spritePic(id).replace(/"/g, '&quot;');
+  return `<img src="/sprites/portraits/${encodeURIComponent(charOf(id))}.png?v=${V}" alt="" onerror="this.outerHTML = this.dataset.fb" data-fb="${fb}">`;
+}
+const STATE_WORD = { typing: 'Working', waiting: 'Waiting for you', sleep: 'Asleep', walking: 'Walking in', leaving: 'Finished', wave: 'Reporting' };
+function renderCard() {
+  const el = document.getElementById('card');
+  let w = cardId && workers.get(cardId);
+  if (cardId?.startsWith('agent:')) {                     // opened from The agents tab
+    const id = cardId.slice(6), lw = liveOf(id);
+    w = id === 'claude' ? (lw ? { ...lw, kind: 'agent', charId: 'claude', label: 'Claude', sub: 'Main agent of every chat', id: 'agent:claude' } : { kind: 'agent', charId: 'claude', label: 'Claude', sub: 'Main agent of every chat', id: 'agent:claude', off: true })
+      : lw ? lw : { kind: 'agent', charId: id, label: agentName(id), sub: agentRole(id), id: 'agent:' + id, off: true };
+  }
+  if (!w) { el.hidden = true; cardId = null; return; }
+  el.hidden = false;
+  const chip = list => `<div class="chips">${list.map(t => `<span>${esc(t)}</span>`).join('')}</div>`;
+  const dot = `<span class="dot" style="display:inline-block;width:8px;height:8px;margin-right:6px;background:${DOT[w.state] || '#999'}"></span>`;
+  let html = '';
+  if (w.kind === 'agent') {
+    const id = w.charId, info = AGENT_INFO[id] || {}, rec = HISTORY.agents?.[id];
+    const pic = portraitPic(id);
+    const parent = workers.get(w.id.split(':')[0]);
+    const tools = !info.tools || info.tools === '*' || (Array.isArray(info.tools) && info.tools.includes('*')) ? ['All tools'] : info.tools;
+    html = `<div class="top"><div class="pic">${pic}</div><div><h2>${esc(w.label)}</h2><div class="role">${esc(w.sub)}</div><div class="bio">${esc(bioOf(info, w.label))}</div></div></div>
+      ${w.off ? `<section><h3>Now</h3>Off duty. Not on a job right now.</section>` : `<section><h3>Now</h3><dl>
+        <dt>Status</dt><dd>${dot}${STATE_WORD[w.state] || ''}</dd>
+        <dt>Doing</dt><dd>${esc(w.doing)}</dd>
+        <dt>Project</dt><dd><bdi>${esc(w.room)}</bdi></dd>
+        <dt>Called by</dt><dd>Claude · <bdi>${esc(parent?.sub || w.chatTitle || '')}</bdi></dd>
+        ${w.startedAt ? `<dt>On it for</dt><dd>${forHow(w.startedAt)}</dd>` : ''}
+      </dl></section>`}
+      <section><h3>Setup</h3><dl>
+        <dt>Agent</dt><dd>${esc(id)}</dd>
+        <dt>Model</dt><dd>${esc(!info.model || info.model === 'inherit' ? 'Same as the chat' : info.model)}</dd>
+        <dt>Tools</dt><dd>${chip(tools || [])}</dd>
+      </dl></section>
+      <section><h3>Record</h3>${rec ? `<div class="nums"><div><b>${rec.total}</b><small>calls in all</small></div><div><b>${rec.week}</b><small>this week</small></div></div>
+        <dl><dt>Most in</dt><dd>${rec.projects.map(([p, n]) => `<bdi>${esc(p)}</bdi> (${n})`).join(', ') || '-'}</dd></dl>
+        <h3 style="margin-top:12px">Last jobs</h3><ol>${rec.jobs.map(j => `<li><time>${dayFmt(j.at)}</time><span><bdi>${esc(j.description || j.chat || '')}</bdi><br><small style="color:var(--muted)"><bdi>${esc(j.project || '')}</bdi></small></span><span class="${j.result === 'failed' ? 'bad' : 'ok'}">${j.result === 'failed' ? 'failed' : 'done'}</span></li>`).join('')}</ol>`
+        : HISTORY.loading ? 'Reading the chat logs…' : 'No calls yet.'}</section>`;
+  } else {
+    const chat = HISTORY.chats?.[w.id] || {};
+    const agents = Object.entries(chat.agents || {}).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${agentName(t)}${n > 1 ? ' ×' + n : ''}`);
+    const skills = Object.entries(chat.skills || {}).sort((a, b) => b[1] - a[1]).map(([t, n]) => `/${t}${n > 1 ? ' ×' + n : ''}`);
+    html = `<div class="top"><div class="pic">${portraitPic('claude')}</div><div><h2>Claude</h2><div class="role"><bdi>${esc(w.sub)}</bdi></div><div class="bio">The main Claude of this chat. It does the work and calls agents when it needs help.</div></div></div>
+      <section><h3>Now</h3><dl>
+        <dt>Status</dt><dd>${dot}${STATE_WORD[w.state] || ''}</dd>
+        <dt>Doing</dt><dd>${esc(w.doing)}</dd>
+        ${w.next ? `<dt>Next</dt><dd>${esc(w.next)}</dd>` : ''}
+        ${w.steps ? `<dt>Steps</dt><dd>${w.steps.done} done · ${w.steps.total - w.steps.done} left</dd>` : ''}
+      </dl></section>
+      <section><h3>This chat</h3><dl>
+        <dt>Project</dt><dd><bdi>${esc(w.room)}</bdi></dd>
+        ${chat.started ? `<dt>Started</dt><dd>${new Date(chat.started).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</dd>` : ''}
+        <dt>Agents</dt><dd>${agents.length ? chip(agents) : 'None yet'}</dd>
+        <dt>Skills</dt><dd>${skills.length ? chip(skills) : 'None yet'}</dd>
+      </dl></section>`;
+  }
+  el.innerHTML = `<button class="x" title="Close" aria-label="Close">x</button>` + html;
+  el.querySelector('.x').onclick = () => openCard(null);
+}
+
+// ───────── tabs: Office · The agents · My skills (#agents / #skills in the address) ─────────
+const CURATED_TEAMS = [   // groups of agents known by name; a group only shows if the machine has those agents
+  ['Design team', 'Your design crew: look, flow, structure, words, languages.', ['visual-agent', 'ux-agent', 'ui-agent', 'brand-agent', 'ui-ux-designer', 'i18n-agent']],
+  ['Build and check', 'They write code, test it, tidy it and check it works.', ['code-builder', 'test-writer', 'linter', 'qa-auditor', 'doc-updater']],
+];
+function teamGroups() {                         // built from the agents found in this machine's Claude folders
+  const ids = Object.keys(AGENT_INFO).filter(id => id !== 'claude'), used = new Set(['claude']);
+  const groups = [['The main agent', 'Every chat has one. It does the work and calls the others.', ['claude']]];
+  for (const [n, b, list] of CURATED_TEAMS) { const l = list.filter(id => AGENT_INFO[id]); if (l.length) { groups.push([n, b, l]); l.forEach(id => used.add(id)); } }
+  const mine = ids.filter(id => !used.has(id) && AGENT_INFO[id].source !== 'builtin');
+  if (mine.length) groups.push([groups.length > 1 ? 'More of your agents' : 'Your agents', 'Agents you made, kept in your Claude folders.', mine]);
+  const built = ids.filter(id => !used.has(id) && AGENT_INFO[id].source === 'builtin');
+  if (built.length) groups.push(['Built in', 'Come with Claude Code.', built]);
+  return groups;
+}
+function setView(v) {
+  view = ['agents', 'skills', 'studio'].includes(v) ? v : 'office';
+  document.body.classList.toggle('not-office', view !== 'office');
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.view === view));
+  document.getElementById('viewAgents').hidden = view !== 'agents';
+  document.getElementById('viewSkills').hidden = view !== 'skills';
+  document.getElementById('viewStudio').hidden = view !== 'studio';
+  if (view !== 'studio') openStudioRoom(null);
+  if (view === 'agents') renderAgentsView();
+  if (view === 'skills') renderSkillsView();
+  if (view === 'studio') loadStudio();
+  if (location.hash.slice(1) !== (view === 'office' ? '' : view)) history.replaceState(null, '', view === 'office' ? location.pathname : '#' + view);
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => setView(b.dataset.view));
+const liveOf = id => [...workers.values()].find(w => (w.kind === 'agent' ? w.charId : 'claude') === id && w.state !== 'leaving');
+function renderAgentsView() {
+  const el = document.getElementById('viewAgents');
+  const TEAM = teamGroups(), total = TEAM.reduce((n, g) => n + g[2].length, 0), busy = TEAM.flatMap(g => g[2]).filter(liveOf).length;
+  el.innerHTML = `<h1>The agents</h1><p class="lead">${total} on the team · ${busy} on the floor right now. Click anyone for their card.</p>` + TEAM.map(([name, blurb, ids], gi) =>
+    `<h2 class="gt gt${gi}">${esc(name)}</h2><p class="gblurb">${esc(blurb)}</p><div class="team">${ids.map(id => {
+      const info = AGENT_INFO[id] || {}, rec = HISTORY.agents?.[id], w = liveOf(id);
+      const nm = id === 'claude' ? 'Claude' : agentName(id), role = id === 'claude' ? 'Main agent of every chat' : agentRole(id);
+      const tools = !info.tools || (Array.isArray(info.tools) && info.tools.includes('*')) ? ['All tools'] : info.tools;
+      const model = !info.model || info.model === 'inherit' ? 'Same model as the chat' : info.model;
+      const live = w ? `<span class="live"><i style="background:${DOT[w.state] || '#999'}"></i>${esc(STATE_WORD[w.state] || '')} · ${esc(w.room)}</span>` : '';
+      const chats = id === 'claude' ? Object.keys(HISTORY.chats || {}).length : 0;
+      return `<button class="tcard px" data-id="${esc(id)}"><div class="stage"><img src="/sprites/portraits/${encodeURIComponent(charOf(id))}.png?v=${V}" alt="${esc(nm)}">${live}</div><div class="tb">
+        <div class="tn">${esc(nm)}</div><div class="tr">${esc(role)}</div>
+        <div class="bio">${esc(id === 'claude' ? 'Reads your request, plans the steps, does most of the work and calls an agent when a job needs a specialist.' : bioOf(info, nm))}</div>
+        <div class="st">${id === 'claude' ? `<span><b>${chats}</b>chats on this Mac</span>` : `<span><b>${rec?.total || 0}</b>calls</span><span><b>${rec?.week || 0}</b>this week</span>`}</div>
+        <div class="ptags"><span>${esc(model)}</span>${(tools || []).slice(0, 6).map(t => `<span>${esc(t)}</span>`).join('')}</div>
+      </div></button>`; }).join('')}</div>`).join('');
+  el.querySelectorAll('.tcard').forEach(b => {
+    b.onclick = () => openCard('agent:' + b.dataset.id);
+  });
+}
+let SKILL_GROUPS = null, SKILLS = [];
+async function loadSkills() {
+  try { SKILL_GROUPS = await (await fetch('/data/skill-groups.json', { cache: 'no-store' })).json(); } catch { SKILL_GROUPS = { groups: [], skills: {} }; }
+  try { SKILLS = (await (await fetch('/api/skills')).json()).skills || []; } catch {}
+}
+function renderSkillsView() {
+  const el = document.getElementById('viewSkills');
+  if (!SKILL_GROUPS) { el.innerHTML = '<h1>My skills</h1><p class="lead">Loading…</p>'; loadSkills().then(() => view === 'skills' && renderSkillsView()); return; }
+  const used = HISTORY.skills || {};
+  const byGroup = Object.fromEntries([...SKILL_GROUPS.groups, { id: 'other' }].map(g => [g.id, []]));
+  for (const sk of SKILLS) (byGroup[SKILL_GROUPS.skills[sk.id]?.group] || byGroup.other).push(sk);
+  const sorted = SKILL_GROUPS.groups.some(g => byGroup[g.id].length);          // none of the known skills here: one plain list instead of "Other"
+  const groups = [...SKILL_GROUPS.groups, sorted ? { id: 'other', name: 'More skills', blurb: 'Not sorted into a group.' } : { id: 'other', name: 'Your skills', blurb: 'Instructions Claude follows for one kind of job.' }];
+  const week = SKILLS.filter(sk => used[sk.id]?.week).length, never = SKILLS.filter(sk => !used[sk.id]).length;
+  const ago = iso => { const d = (Date.now() - Date.parse(iso)) / 864e5; return d < 1 ? 'today' : d < 2 ? 'yesterday' : `${Math.round(d)} days ago`; };
+  el.innerHTML = `<h1>My skills</h1><p class="lead">${SKILLS.length} skills${sorted ? ` in ${groups.filter(g => byGroup[g.id].length).length} groups` : ''} · ${week} used this week · ${never} never used yet. A skill is a set of instructions Claude follows for one kind of job; you call one with a slash, like /ship.</p>
+    <div class="jump">${groups.filter(g => byGroup[g.id].length).map(g => `<a href="#skills" data-g="${g.id}">${esc(g.name)} · ${byGroup[g.id].length}</a>`).join('')}</div>` +
+    groups.filter(g => byGroup[g.id].length).map(g => `<h2 id="g-${g.id}" class="gc-${g.id}">${esc(g.name)}</h2><p class="gblurb">${esc(g.blurb)}</p><div class="skills gc-${g.id}">${byGroup[g.id].sort((a, b) => (used[b.id]?.total || 0) - (used[a.id]?.total || 0) || a.id.localeCompare(b.id)).map(sk => {
+      const u = used[sk.id], text = SKILL_GROUPS.skills[sk.id]?.text || String(sk.description || '').split(/(?<=\.)\s/)[0];
+      return `<div class="skill px${u ? '' : ' unused'}" title="${esc(sk.description || '')}"><div class="sn">/${esc(sk.id)}</div><div class="sx">${esc(text)}</div>
+        <div class="su">${u ? (ago(u.last) === 'today' ? '<b>Used today</b> · ' : '') + `${u.total} ${u.total === 1 ? 'use' : 'uses'} · last ${ago(u.last)}` : 'Not used yet'}</div></div>`; }).join('')}</div>`).join('');
+  el.querySelectorAll('.jump a').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById('g-' + a.dataset.g)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+}
+// ───────── Studio: redraw a room in a new theme (local only: the tab shows when /api/studio answers) ─────────
+let STUDIO = null, studioOpen = null, studioSig = '', studioBust = Date.now();   // studioBust changes only when a room is kept, so the grid never reloads its pictures for nothing
+const studioTab = document.getElementById('studioTab'), studioEd = document.getElementById('studioEd');
+const PROFILE = FRESH ? 'preview' : 'main';
+fetch('/api/studio/rooms').then(r => { if (r.ok) studioTab.hidden = false; }).catch(() => {});
+let studioReq = 0;
+async function loadStudio() {
+  const mine = ++studioReq;                    // an older answer that arrives late must not overwrite a newer one
+  let rooms = null;
+  try { const r = await fetch('/api/studio/rooms?profile=' + PROFILE, { cache: 'no-store' }); if (!r.ok) throw 0; rooms = (await r.json()).rooms.filter(x => !HIDDEN_ROOMS.has(x.name)); } catch {}
+  if (mine !== studioReq) return;
+  STUDIO = rooms || STUDIO || [];
+  if (view === 'studio') renderStudio();
+  if (studioOpen) renderStudioRoom();
+}
+setInterval(() => { if (view === 'studio') loadStudio(); }, 2000);   // a draw takes about a minute: keep the timer and the result fresh
+const roomSrc = r => '/sprites/rooms/' + (r.file || ROOM_DEFAULT) + '?v=' + studioBust;
+const FLAG = { waiting: 'Waiting…', drawing: 'Drawing…', ready: 'New version', error: 'Failed' };
+function renderStudio() {
+  const el = document.getElementById('viewStudio');
+  const sig = JSON.stringify(STUDIO.map(r => [r.name, r.file, r.job?.status])) + studioBust + JSON.stringify(CHAR_MAP) + JSON.stringify(NAME_MAP);
+  if (sig === studioSig && el.childElementCount) return;
+  studioSig = sig;
+  const agentIds = ['claude', ...Object.keys(AGENT_INFO).filter(id => id !== 'claude')];
+  el.innerHTML = `<h1>Studio</h1><p class="lead">Choose a character for each agent, and a room for each project: pick a ready-made one (free) or draw your own. Everything stays pixel art, so the characters always fit in.</p>
+    ${keyBlock()}
+    <div class="acts stbar"><button class="main" id="stAll">Draw all rooms in one theme</button></div>
+    <h2 class="gt">Agents</h2><div class="rgrid agrid">${agentIds.map(id => {
+      const cid = charOf(id), ch = CHARS.find(c => c.id === cid), nm = id === 'claude' ? 'Claude' : agentName(id);
+      return `<button class="rcard acard px" data-agent="${esc(id)}"><div class="stage"><img src="/sprites/portraits/${encodeURIComponent(cid)}.png?v=${V}" alt="" loading="lazy"></div><div class="rn"><bdi>${esc(nm)}</bdi><span class="as">Plays ${esc(ch?.name || cid)}</span></div></button>`; }).join('')}</div>
+    <h2 class="gt">Rooms</h2><div class="rgrid">${STUDIO.map(r => `<button class="rcard px" data-name="${esc(r.name)}"><div class="stage"><img src="${roomSrc(r)}" alt="" loading="lazy">${r.job ? `<span class="flag ${r.job.status}">${FLAG[r.job.status]}</span>` : ''}</div><div class="rn"><bdi>${esc(r.name)}</bdi></div></button>`).join('')}</div>`;
+  el.querySelectorAll('.rcard[data-name]').forEach(b => b.onclick = () => openStudioRoom(b.dataset.name));
+  el.querySelectorAll('.acard').forEach(b => b.onclick = () => openAgentPicker(b.dataset.agent));
+  el.querySelector('#stAll').onclick = openThemeAll;
+  wireKey(el);
+}
+// the ready-made characters and rooms that come with the app
+let CHARS = [], PACK = [];
+// The Gemini key (only needed to draw your own rooms). Saved on this computer by the server, never in the project.
+let KEYST = { saved: false, source: 'none', hint: '' };
+const loadKey = async () => { try { KEYST = await (await fetch('/api/studio/key', { cache: 'no-store' })).json(); } catch {} };
+await loadKey();
+const keyBlock = () => `<div class="keyblk"><h3 class="kt">Gemini key</h3>${KEYST.saved
+  ? `<p>${KEYST.source === 'file' ? `Saved on this computer (${esc(KEYST.hint)}).` : KEYST.source === 'env' ? 'Using the GEMINI_API_KEY of this computer.' : 'Using the key of this workspace.'} Drawing your own rooms costs about 10 cents each.</p>
+     <div class="krow"><button type="button" data-k="change">Change key</button>${KEYST.source === 'file' ? '<button type="button" data-k="remove">Remove key</button>' : ''}</div>`
+  : `<p>Drawing your own rooms needs your Gemini key: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">get one</a> and turn on billing there. The ready rooms are free. The key stays on this computer.</p>
+     <div class="krow"><input type="password" data-k="input" placeholder="Paste your key" autocomplete="off"><button type="button" data-k="save">Save key</button></div>`}<div class="kmsg" data-k="msg"></div></div>`;
+function wireKey(root) {
+  const blk = root.querySelector('.keyblk'); if (!blk) return;
+  const redo = () => { blk.outerHTML = keyBlock(); wireKey(root); };
+  const msg = (t, c) => { const m = blk.querySelector('[data-k=msg]'); m.className = 'kmsg ' + (c || ''); m.textContent = t; };
+  blk.querySelector('[data-k=change]')?.addEventListener('click', () => { KEYST = { ...KEYST, saved: false }; redo(); });
+  blk.querySelector('[data-k=remove]')?.addEventListener('click', async () => { KEYST = await (await fetch('/api/studio/key', { method: 'DELETE' })).json(); redo(); });
+  blk.querySelector('[data-k=save]')?.addEventListener('click', async () => {
+    const v = blk.querySelector('[data-k=input]').value.trim(); if (!v) return;
+    msg('Checking with Google…');
+    const r = await fetch('/api/studio/key/save', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: v }) }).then(r => r.json()).catch(() => ({ ok: false, error: "Couldn't save" }));
+    if (!r.ok) return msg(r.error, 'bad');
+    KEYST = r; redo(); root.querySelector('.keyblk [data-k=msg]').textContent = 'Key saved ✓'; root.querySelector('.keyblk [data-k=msg]').className = 'kmsg ok';
+  });
+}
+try { CHARS = await (await fetch('/data/characters.json')).json(); } catch {}
+const loadPack = async () => { try { PACK = (await (await fetch('/api/studio/pack?profile=' + PROFILE, { cache: 'no-store' })).json()).rooms || []; } catch {} };
+await loadPack();
+async function refreshRooms() {                // the hive shows a changed room straight away
+  V = studioBust = Date.now();
+  try { ROOM_FILES = await (await fetch(`/sprites/rooms/${ROOM_INDEX}?v=${V}`, { cache: 'no-store' })).json(); } catch {}
+  roomImgs.clear(); alphaCache.clear();
+}
+let studioPick = null, packChoice = null;      // packChoice: the ready room being looked at (not applied until "Use this room")
+function openAgentPicker(id) {
+  studioPick = id; studioOpen = null; studioEd.hidden = !id;
+  if (!id) { studioEd.innerHTML = ''; return; }
+  const nm = id === 'claude' ? 'Claude' : agentName(id), cur = charOf(id);
+  studioEd.innerHTML = `<div class="sed wide px" role="dialog" aria-modal="true" aria-label="Choose a character"><button class="x" title="Close" aria-label="Close">x</button>
+    <h2><bdi>${esc(nm)}</bdi></h2>
+    <div class="namefield"><label for="agName">Name</label><input type="text" id="agName" maxlength="40" value="${esc(NAME_MAP[id] || '')}" placeholder="${esc(AGENT_INFO[id]?.name || prettyName(id))}" autocomplete="off"><p class="hint">This is what the agent is called on screen. Leave it empty to keep the default.</p></div>
+    <p class="hint">Pick the character that plays this agent.</p>
+    <div class="rgrid cgrid">${CHARS.map(c => `<button class="rcard px${c.id === cur ? ' on' : ''}" data-c="${esc(c.id)}"><div class="stage"><img src="/sprites/portraits/${encodeURIComponent(c.id)}.png?v=${V}" alt=""></div><div class="rn">${esc(c.name)}<span class="as">${esc(c.role)}</span></div></button>`).join('')}</div>
+    ${CHAR_MAP[id] ? '<div class="acts"><button data-reset>Back to automatic</button></div>' : ''}</div>`;
+  studioEd.querySelector('.x').onclick = () => { openAgentPicker(null); renderStudio(); };
+  studioEd.querySelector('#agName').oninput = e => { const v = e.target.value.trim(); if (v) NAME_MAP[id] = v; else delete NAME_MAP[id]; saveNameMap(); };
+  studioEd.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { CHAR_MAP[id] = b.dataset.c; saveCharMap(); openAgentPicker(null); renderStudio(); });
+  studioEd.querySelector('[data-reset]')?.addEventListener('click', () => { delete CHAR_MAP[id]; saveCharMap(); openAgentPicker(null); renderStudio(); });
+}
+// The picker: my rooms first (the ones I added with "Add to my rooms"), then the ready rooms that come with the app
+function fillPackRow() {
+  const row = studioEd.querySelector('.packrow'), r = STUDIO?.find(x => x.name === studioOpen); if (!row || !r) return;
+  const btn = p => `<button type="button" class="packpick${r.file === p.file ? ' on' : ''}" data-pack="${esc(p.id)}" title="${esc(p.name)}"><img src="/sprites/rooms/${esc(p.file)}" alt="${esc(p.name)}"><span>${esc(p.name)}</span></button>`;
+  const mine = PACK.filter(p => p.mine), ready = PACK.filter(p => !p.mine);
+  row.innerHTML = (mine.length ? `<div class="grpname">My rooms (${mine.length})</div>${mine.map(btn).join('')}<div class="grpname">Ready rooms</div>` : '') + ready.map(btn).join('');
+  row.querySelectorAll('[data-pack]').forEach(b => b.onclick = () => {
+    packChoice = b.dataset.pack; renderStudioRoom();
+    const pics = studioEd.querySelector('.sed-pics'), box = studioEd.querySelector('.sed').getBoundingClientRect(), pr = pics.getBoundingClientRect();
+    if (pr.top < box.top || pr.bottom > box.bottom) pics.scrollIntoView({ behavior: 'smooth', block: 'start' });   // the preview is not fully in view: bring it into view
+  });
+}
+// A room picture that fails to load is tried once more straight from the API server, then replaced by the neutral room: never a broken-picture icon
+document.addEventListener('error', e => {
+  const im = e.target; if (!(im instanceof HTMLImageElement) || !im.src.includes('/sprites/rooms/') || im.dataset.fix === '2') return;
+  const rel = decodeURIComponent(im.src.split('/sprites/rooms/')[1].split('?')[0]);
+  if (!im.dataset.fix) { im.dataset.fix = '1'; im.src = '/api/studio/file?p=' + encodeURIComponent(rel) + '&t=' + Date.now(); }
+  else { im.dataset.fix = '2'; im.src = '/sprites/rooms/' + ROOM_DEFAULT; }
+}, true);
+let genSeen = '';                              // the result's last state, so the popup scrolls to it once when it changes
+function openStudioRoom(name) {
+  studioOpen = name; studioPick = null; packChoice = null; genSeen = ''; studioEd.hidden = !name;
+  if (!name) { studioEd.innerHTML = ''; if (STUDIO && view === 'studio') renderStudio(); return; }
+  const r = STUDIO.find(x => x.name === name);
+  studioEd.innerHTML = `<div class="sed px" role="dialog" aria-modal="true" aria-label="Choose or generate a room"><button class="x" title="Close" aria-label="Close">x</button>
+    <h2><bdi>${esc(name)}</bdi></h2><p class="okmsg" hidden></p><div class="sed-pics"></div>
+    ${PACK.length ? `<section class="blk"><h3 class="bt">1 · Pick a ready room</h3><p class="hint">Click a room to preview it above, then press Use this room.</p>
+      <div class="packrow"></div>
+      <div class="acts packacts"></div></section>` : ''}
+    <section class="blk"><h3 class="bt">${PACK.length ? '2 · Or generate your own room' : 'Generate a room'}</h3>
+      <p class="hint">Describe the room, add reference pictures if you like (up to 6), then press Generate room. It uses your Gemini key: about 10 cents, up to 30 if a try needs a redraw.</p>
+      ${KEYST.saved ? '' : keyBlock()}
+      <textarea id="stTheme" aria-label="Describe the room" placeholder="e.g. a heavy metal rehearsal room: amps, skulls, flame decals, black and red">${esc(r.job?.theme || r.theme)}</textarea>
+      <div class="refrow" id="stRef"><div class="refthumbs"></div><div class="genbar"><div class="acts genacts"></div><button type="button" class="pickref">Add reference image</button></div><input type="file" multiple accept="image/png,image/jpeg,image/webp"></div>
+      <div class="genres"></div></section></div>`;
+  studioEd.querySelector('.x').onclick = () => openStudioRoom(null);
+  fillPackRow();
+  delete refs.stRef; wireRefPicker(studioEd, 'stRef'); wireKey(studioEd);
+  renderStudioRoom();
+}
+studioEd.addEventListener('click', e => { if (e.target === studioEd) openStudioRoom(null); });
+window.addEventListener('keydown', e => { if (e.key === 'Escape' && (studioOpen || studioPick)) openStudioRoom(null); });
+function renderStudioRoom() {
+  const r = STUDIO.find(x => x.name === studioOpen); if (!r) return openStudioRoom(null);
+  const j = r.job, pics = studioEd.querySelector('.sed-pics'), genacts = studioEd.querySelector('.genacts'), genres = studioEd.querySelector('.genres');
+  const busy = j && j.status !== 'error', pc = packChoice && !busy ? PACK.find(p => p.id === packChoice) : null;
+  // top: the room as it is now, and (only while a ready room is being looked at) that room beside it
+  const sig = JSON.stringify([r.file, studioBust, pc?.id]);
+  if (pics.dataset.sig !== sig) {
+    pics.dataset.sig = sig;
+    pics.innerHTML = `<div class="pair${pc ? '' : ' one'}"><figure><figcaption>Now</figcaption><div class="pic"><img src="${roomSrc(r)}" alt="The room now"></div></figure>${pc ? `<figure><figcaption>${esc(pc.name)}</figcaption><div class="pic"><img src="/sprites/rooms/${esc(pc.file)}" alt="${esc(pc.name)}"></div></figure>` : ''}</div>`;
+  }
+  studioEd.querySelector('.packrow')?.classList.toggle('locked', !!busy);
+  studioEd.querySelector('.genbar')?.classList.toggle('busy', !!busy);          // while a room is being drawn, Generate and Add reference image are both hidden
+  studioEd.querySelectorAll('.packpick').forEach(b => { b.classList.toggle('on', r.file === PACK.find(p => p.id === b.dataset.pack)?.file); b.classList.toggle('sel', b.dataset.pack === pc?.id); });
+  const pa = studioEd.querySelector('.packacts');
+  if (pa && pa.dataset.sig !== (pc?.id || '-')) {
+    pa.dataset.sig = pc?.id || '-';
+    pa.innerHTML = pc ? '<button class="main" data-a="usepack">Use this room</button><button data-a="cancelpack">Cancel</button>' : '';
+    pa.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => studioAct(b.dataset.a, b));
+  }
+  // bottom: one Generate button until a result exists; the result, with its own buttons, appears right below it
+  const gSig = busy ? 'busy' : 'idle';
+  if (genacts.dataset.sig !== gSig) {
+    genacts.dataset.sig = gSig;
+    genacts.innerHTML = busy ? '' : '<button class="main" data-a="draw">Generate room</button>';
+    genacts.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => studioAct(b.dataset.a, b));
+  }
+  const rSig = JSON.stringify([j?.status, j?.draft, j?.status === 'drawing' ? [j.seconds, j.attempt] : 0, studioBust]);
+  if (genres.dataset.sig !== rSig) {
+    genres.dataset.sig = rSig;
+    genres.innerHTML = !j ? '' :
+      j.status === 'waiting' ? '<div class="busy box">Waiting for a free spot…</div>' :
+      j.status === 'drawing' ? `<div class="busy box">Drawing your room… ${j.seconds} s${j.attempt > 1 ? `<br><span class="sub">That drawing had a flaw (too coarse, too tall or too dark), so it is being drawn again (try ${j.attempt} of 2).</span>` : ''}</div>` :
+      j.status === 'ready' ? `<figure class="resfig"><figcaption>Your new room</figcaption><div class="pic big"><img src="/sprites/rooms/${esc(j.draft)}" alt="The new room"></div></figure>
+        ${j.stained ? '<p class="warn">This one has dark patches. Press Generate again for a cleaner one.</p>' : ''}
+        ${j.fits ? '' : '<p class="warn">This one came out tall, so it will look a little smaller in the hive.</p>'}
+        <div class="acts resacts"><button class="main" data-a="keep">Add to my rooms</button><button data-a="draw">Generate again</button><button data-a="discard">Discard</button></div>
+        <p class="hint">Generate again makes a new room from the description above. Change the text first if you want something different.</p>` :
+      `<div class="busy err box">That didn't work: ${esc(j.error || 'unknown error')}</div>`;
+    genres.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => studioAct(b.dataset.a, b));
+  }
+  const seen = j?.status || '';
+  if (seen !== genSeen) { if (seen === 'waiting' || seen === 'ready') genres.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); genSeen = seen; }
+}
+async function studioAct(a, btn) {
+  const project = studioOpen, theme = studioEd.querySelector('#stTheme').value.trim();
+  if (a === 'cancelpack') { packChoice = null; return renderStudioRoom(); }
+  if (a === 'usepack') {
+    btn.disabled = true;
+    const r = await fetch('/api/studio/room/use-pack', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project, pack: packChoice, profile: PROFILE }) });
+    if (!r.ok) { alert((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status); btn.disabled = false; return; }
+    packChoice = null; await refreshRooms(); return loadStudio();
+  }
+  if (a === 'draw' && !theme) { studioEd.querySelector('#stTheme').focus(); return; }
+  if (a === 'draw' && !KEYST.saved) { const k = studioEd.querySelector('[data-k=input]'); k?.scrollIntoView({ behavior: 'smooth', block: 'center' }); k?.focus(); return; }
+  btn.disabled = true; if (a === 'draw') packChoice = null;
+  try {
+    const r = await fetch('/api/studio/room/' + a, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ project, theme, profile: PROFILE, refs: a === 'draw' ? refs.stRef : undefined }) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
+    if (a === 'keep') {                          // the hive shows the new room straight away
+      await refreshRooms(); await loadPack(); fillPackRow();
+      const ok = studioEd.querySelector('.okmsg'); if (ok) { ok.textContent = 'Added to My rooms ✓ (you can use it for any room)'; ok.hidden = false; setTimeout(() => { ok.hidden = true; }, 5000); }
+      studioEd.querySelector('.sed')?.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  } catch (e) { alert(e.message); btn.disabled = false; }
+  await loadStudio();
+}
+// Reference pictures (optional, up to 6): what goes in the room, its colours and mood. Each is shrunk to 1024 px in
+// the browser; the server redraws them as pixel art, never uses them as they are.
+const MAX_REFS = 6;
+const refs = {};                                   // picker id → [data URLs]
+const refPicker = id => `<div class="refrow" id="${id}"><div class="refthumbs"></div><button type="button" class="pickref">Add reference image</button><input type="file" multiple accept="image/png,image/jpeg,image/webp"></div>`;
+function wireRefPicker(root, id) {
+  const row = root.querySelector('#' + id), input = row.querySelector('input'), box = row.querySelector('.refthumbs'), add = row.querySelector('.pickref');
+  const list = () => refs[id] || (refs[id] = []);
+  const show = () => {
+    box.innerHTML = list().map((src, i) => `<div class="refthumb"><img src="${src}" alt="Reference image ${i + 1}"><button type="button" class="refx" data-i="${i}" title="Remove" aria-label="Remove reference image ${i + 1}">x</button></div>`).join('');
+    box.querySelectorAll('.refx').forEach(b => b.onclick = () => { list().splice(+b.dataset.i, 1); show(); });
+    add.hidden = list().length >= MAX_REFS;
+    add.textContent = list().length ? `Add more (${list().length} of ${MAX_REFS})` : 'Add reference image';
+  };
+  const shrink = f => new Promise(res => {
+    const im = new Image();
+    im.onload = () => {
+      const k = Math.min(1, 1024 / Math.max(im.width, im.height)), c = document.createElement('canvas');
+      c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(im.src); res(c.toDataURL('image/jpeg', 0.9));
+    };
+    im.onerror = () => res(null);
+    im.src = URL.createObjectURL(f);
+  });
+  add.onclick = () => input.click();
+  input.onchange = async () => {
+    const files = [...(input.files || [])].slice(0, MAX_REFS - list().length); input.value = '';
+    for (const f of files) { const d = await shrink(f); if (d) list().push(d); }
+    show();
+  };
+  show();
+}
+
+// ───────── "Try as new user" ─────────
+const freshBtn = document.getElementById('freshBtn'), freshBar = document.getElementById('freshBar'), welcomeEl = document.getElementById('welcome');
+const setFresh = on => { try { on ? localStorage.setItem('bk-fresh', '1') : localStorage.removeItem('bk-fresh'); if (on) localStorage.removeItem('bk-welcomed'); } catch {} location.reload(); };
+freshBtn.hidden = true; freshBar.hidden = true;
+freshBtn.onclick = () => setFresh(true);
+document.getElementById('fbExit').onclick = () => setFresh(false);
+document.getElementById('fbSetup').onclick = () => setView('studio');
+document.getElementById('fbReset').onclick = async () => {
+  if (!confirm('Start the new-user preview over? The rooms drawn in it are thrown away.')) return;
+  await fetch('/api/studio/preview/reset', { method: 'POST' }).catch(() => {});
+  setFresh(true);
+};
+const STYLES = {
+  'High tech': 'a sleek high-tech lab: glowing holographic screens on the walls, server racks with blinking lights, neon cyan strips, white and chrome with electric blue',
+  'Heavy metal': 'a heavy metal den: stacks of guitar amps, flame decals, skulls and chains, a drum kit, black and blood red with fire orange',
+  'Cozy cabin': 'a cozy log cabin: a stone fireplace, plaid blankets, antlers and lanterns, bookshelves, warm wood and forest green',
+  'Candy land': 'a candy land room: giant lollipops, gumdrop shelves, a chocolate fountain, sprinkles on the walls, pastel pink, mint and lemon',
+  'Space station': 'a space station module: a round porthole with stars and a planet, control panels, a floating astronaut plush, white panels and orange',
+  'Haunted house': 'a friendly haunted house: cobwebs, a crooked portrait, candles, a cute ghost, a cauldron, deep purple and lime green',
+};
+const COST = 0.10;                       // Google's price for one 2K image (Nano Banana 2, Nov 2026)
+// Three agents each side of the logo, each doing something else (never walking): a wave, typing, a blink, asleep.
+const WELCOME_CAST = { left: [['visual-agent', 'wave'], ['code-builder', 'type'], ['i18n-agent', 'idle']], right: [['doc-updater', 'sleep'], ['ui-agent', 'type'], ['ui-ux-designer', 'wave']] };
+function startWelcomeCast(root) {
+  let alive = true; const items = [];
+  const frames = (c, act) => act === 'idle' ? [c.idleFrame(0)] : act === 'sleep' ? [c.sleepFrame(0)] : c.anim[act === 'type' ? 'typing' : 'wave'].set.frames;
+  const pickFrame = (c, act, now) => { if (act === 'idle') return c.idleFrame(now); if (act === 'sleep') return c.sleepFrame(now); const a = c.anim[act === 'type' ? 'typing' : 'wave']; return a.set.frames[a.seq[Math.floor(now / 1000 * a.fps) % a.seq.length]] || a.set.frames[0]; };
+  const cvs = [...root.querySelectorAll('canvas[data-char]')];
+  Promise.all(cvs.map(async cv => {
+    try {
+      const c = await buildChar(cv.dataset.char), act = cv.dataset.act, fr = frames(c, act);
+      const W = Math.max(...fr.map(f => f.width)), H = Math.max(...fr.map(f => f.height));
+      const u = document.createElement('canvas'); u.width = W; u.height = H; const ug = u.getContext('2d');
+      fr.forEach(f => ug.drawImage(f, (W - f.width) >> 1, H - f.height));
+      const px = ug.getImageData(0, 0, W, H).data; let minX = W, maxX = -1;           // trim the empty sides, so the row can sit exactly inside the title's width
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (px[(y * W + x) * 4 + 3] > 0) { if (x < minX) minX = x; if (x > maxX) maxX = x; }
+      if (maxX < 0) { minX = 0; maxX = W - 1; }
+      cv.width = maxX - minX + 1; cv.height = H; cv._W = W; cv._off = minX;
+      cv.style.width = cv.width * 2 + 'px'; cv.style.height = cv.height * 2 + 'px';
+      if (cv.closest('[data-side=right]') && (act === 'type' || act === 'sleep')) cv.style.transform = 'scaleX(-1)';   // face the logo
+      items.push({ cv, c, act, g: cv.getContext('2d') });
+    } catch {}
+  })).then(() => {
+    const loop = now => {
+      if (!alive) return;
+      for (const { cv, c, act, g } of items) { const f = pickFrame(c, act, now); g.clearRect(0, 0, cv.width, cv.height); g.imageSmoothingEnabled = false; g.drawImage(f, ((cv._W - f.width) >> 1) - cv._off, cv.height - f.height); }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  });
+  return () => { alive = false; };
+}
+function openWelcome(force) {
+  if (!FRESH) return;
+  if (!rooms.size) return setTimeout(() => openWelcome(force), 500);   // wait for the first list of projects
+  try { if (!force && localStorage.getItem('bk-welcomed')) return; localStorage.setItem('bk-welcomed', '1'); } catch {}
+  const names = [...rooms.keys()];
+  welcomeEl.hidden = false;
+  const cast = (side, list) => `<div class="cast" data-side="${side}">${list.map(([id, act]) => `<canvas data-char="${esc(id)}" data-act="${act}" aria-hidden="true"></canvas>`).join('')}</div>`;
+  welcomeEl.innerHTML = `<div class="sed welcome hello px" role="dialog" aria-modal="true" aria-label="Welcome"><button class="x" title="Close" aria-label="Close">x</button>
+    <div class="hbox"><div class="logorow">${cast('left', WELCOME_CAST.left)}<img class="logo" src="/favicon.svg" alt="BeeKeeper logo">${cast('right', WELCOME_CAST.right)}</div>
+    <h1>Welcome to BeeKeeper</h1></div>
+    <p class="intro">Your Claude chats and agents become little workers, and every project gets its own pixel room.</p>
+    <div class="acts"><button class="main" id="wPack">Start now</button></div>
+  </div>`;
+  const stopCast = startWelcomeCast(welcomeEl);
+  const $ = s => welcomeEl.querySelector(s), close = () => { stopCast(); welcomeEl.hidden = true; welcomeEl.innerHTML = ''; };
+  $('.x').onclick = close;
+  welcomeEl.onclick = e => { if (e.target === welcomeEl) close(); };
+  $('#wPack').onclick = async () => {
+    $('#wPack').disabled = true;
+    const r = await fetch('/api/studio/rooms/use-pack-all', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ profile: 'preview', projects: names }) }).catch(() => null);
+    if (!r?.ok) { alert('Could not set the rooms'); $('#wPack').disabled = false; return; }
+    await refreshRooms(); close(); setView('office'); fitAll(true);
+  };
+}
+// Studio: one theme for every room (needs the user's own Gemini key; the rooms pop in as they are drawn)
+function openThemeAll() {
+  const names = STUDIO.map(r => r.name);
+  studioOpen = null; studioPick = null; studioEd.hidden = false;
+  studioEd.innerHTML = `<div class="sed welcome px" role="dialog" aria-modal="true" aria-label="Draw all rooms"><button class="x" title="Close" aria-label="Close">x</button>
+    <h2>Draw all rooms in one theme</h2>
+    <p class="intro">Optional. Every room is redrawn in the style you choose, on your own Gemini key: about 10 cents a room.</p>
+    ${keyBlock()}
+    <div class="step"><h3>2 · Pick a style</h3>
+      <div class="styles">${Object.keys(STYLES).map(k => `<button data-s="${esc(k)}">${esc(k)}</button>`).join('')}</div>
+      <textarea id="tTheme" placeholder="Or describe your own style"></textarea>
+      ${refPicker('tRef')}
+      <p>Always pixel art, so the characters fit in.</p></div>
+    <div class="step"><h3>3 · Draw</h3>
+      <div class="acts"><button class="main" id="tDraw">Draw all ${names.length} rooms (about $${(names.length * COST).toFixed(2)})</button><button id="tSkip">Not now</button></div></div>
+  </div>`;
+  const $ = s => studioEd.querySelector(s), close = () => openStudioRoom(null);
+  $('.x').onclick = close; $('#tSkip').onclick = close;
+  delete refs.tRef; wireRefPicker(studioEd, 'tRef'); wireKey(studioEd);
+  studioEd.querySelectorAll('.styles button').forEach(b => b.onclick = () => {
+    studioEd.querySelectorAll('.styles button').forEach(x => x.classList.toggle('on', x === b));
+    $('#tTheme').value = STYLES[b.dataset.s];
+  });
+  $('#tDraw').onclick = async () => {
+    const theme = $('#tTheme').value.trim();
+    if (!theme) { $('#tTheme').focus(); return; }
+    if (!KEYST.saved) { studioEd.querySelector('[data-k=input]')?.focus(); return; }
+    $('#tDraw').disabled = true;
+    const r = await fetch('/api/studio/rooms/draw-all', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ profile: PROFILE, theme, projects: names, refs: refs.tRef }) }).catch(() => null);
+    if (!r?.ok) { alert((await r?.json().catch(() => ({})))?.error || 'Could not start drawing'); $('#tDraw').disabled = false; return; }
+    close();
+    if (FRESH) { setView('office'); fitAll(true); } else loadStudio();      // in the preview the rooms pop into the hive; otherwise each shows as a New version to review
+  };
+}
+window.addEventListener('hashchange', () => setView(location.hash.slice(1)));
+
+// ───────── camera ─────────
+const zoom = () => zoomV;
+const toScreen = p => ({ x: (p.x - cam.x) * zoom() + canvas.clientWidth / 2, y: (p.y - cam.y) * zoom() + canvas.clientHeight / 2 });
+const toWorld = s => ({ x: (s.x - canvas.clientWidth / 2) / zoom() + cam.x, y: (s.y - canvas.clientHeight / 2) / zoom() + cam.y });
+function resize() { canvas.width = Math.round(canvas.clientWidth * DPR); canvas.height = Math.round(canvas.clientHeight * DPR); }
+window.addEventListener('resize', resize); resize();
+function fitAll(animate) {   // the Fit all button glides out; the first load jumps straight there
+  followId = null; flyTo = null; roomZoomBack = null; roomPick.value = ''; renderSide();
+  const all = [...rooms.values()], vis = activeOnly && all.some(r => r.active) ? all.filter(r => r.active) : all;   // Active only: fit what's left
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const r of vis) { const p = r.target || r; x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x + room.width); y1 = Math.max(y1, p.y + room.height); }
+  const phone = window.innerWidth <= 700;                            // phone: the bars are above and below, not on the side
+  const topH = phone ? document.querySelector('.hud').getBoundingClientRect().bottom + 8 : 0;   // phone: fit between the top bar and the chat strip
+  const side = document.getElementById('side'), botH = phone ? (side.children.length ? canvas.clientHeight - side.getBoundingClientRect().top : 0) + 8 : 0;
+  const z = Math.min(2, (canvas.clientWidth - (phone ? 24 : 300)) / (x1 - x0 + 20), (canvas.clientHeight - (phone ? topH + botH : 120)) / (y1 - y0 + 20));
+  const sideW = phone ? 0 : side.offsetWidth + 16;                   // centre in the space left of the side list
+  const cx = (x0 + x1) / 2 + sideW / 2 / z, cy = (y0 + y1) / 2 - (topH - botH) / 2 / z;
+  if (animate === true) startFly(cx, cy, z);
+  else { cam = { x: cx, y: cy }; setZoom(z, null, true); }
+}
+
+// ───────── draw ─────────
+function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+// pixel-art box: square, 1-unit dark border, stepped corners, pixel tail (u = one "pixel")
+function pixelBox(x, y, w, h, u, tail) {
+  x = Math.round(x); y = Math.round(y); w = Math.round(w); h = Math.round(h);
+  ctx.fillStyle = '#2a2050';
+  ctx.fillRect(x + u, y, w - 2 * u, h); ctx.fillRect(x, y + u, w, h - 2 * u);           // border with cut corners
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(x + 2 * u, y + u, w - 4 * u, h - 2 * u); ctx.fillRect(x + u, y + 2 * u, w - 2 * u, h - 4 * u);
+  if (tail) { const tx = Math.round(tail); ctx.fillStyle = '#2a2050'; ctx.fillRect(tx - 3 * u, y + h, 6 * u, u); ctx.fillRect(tx - 2 * u, y + h + u, 4 * u, u); ctx.fillRect(tx - u, y + h + 2 * u, 2 * u, u);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(tx - 2 * u, y + h - u, 4 * u, u); ctx.fillRect(tx - u, y + h, 2 * u, u); }
+}
+function label(text, cx, cy, dim, k = 1, maxW = 1e9) {
+  const u = k < 0.8 ? 1 : 2, fs = Math.round((dim ? FS() * 0.85 : FS()) * k);
+  ctx.font = `${dim ? 400 : FB()} ${fs}px ${PF()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  text = ellipsis(text, maxW - 20);
+  const w = ctx.measureText(text).width + 20 * k, h = fs + 14 * k;
+  if (dim) ctx.globalAlpha = 0.8;
+  pixelBox(cx - w / 2, cy - h / 2, w, h, u);
+  ctx.fillStyle = dim ? '#5d6170' : '#1c1d22'; ctx.fillText(text, Math.round(cx), Math.round(cy + 1));
+  ctx.globalAlpha = 1;
+}
+let fadeT = performance.now();
+function drawRooms() {
+  const z = zoom(); ctx.imageSmoothingEnabled = false;
+  const vw = canvas.clientWidth, vh = canvas.clientHeight;
+  const shown = [];
+  const now = performance.now(), ease = Math.min(1, (now - fadeT) / 1000 * 7); fadeT = now;
+  for (const [name, r] of [...rooms.entries()].sort((a, b) => a[1].y - b[1].y)) {
+    r.fade ??= 1; r.fade += ((activeOnly && !r.active ? 0 : 1) - r.fade) * ease;   // Active only: offline rooms fade and shrink away
+    if (r.target) { const dx = r.target.x - r.x, dy = r.target.y - r.y; moveRoom(r, Math.abs(dx) < 0.5 ? dx : dx * ease, Math.abs(dy) < 0.5 ? dy : dy * ease); }
+    if (r.fade < 0.01) continue;
+    const o = toScreen(r);
+    if (o.x + room.width * z < -50 || o.y + room.height * z < -50 || o.x > vw + 50 || o.y > vh + 50) continue;   // off screen
+    const off = !r.active && !allColour;
+    const im = roomImg(name);
+    const f = Math.min(room.width / im.width, room.height / im.height);                    // fit inside the cell (taller rooms shrink, never spill into the row above)
+    const w = im.width * f, h = im.height * f;
+    if (off) ctx.filter = 'grayscale(1) opacity(0.45)';
+    ctx.globalAlpha = r.fade; const s = 0.8 + 0.2 * r.fade;   // shrinks toward the room's centre
+    ctx.drawImage(im, Math.round(o.x + (room.width - w * s) / 2 * z), Math.round(o.y + (room.height - h * (1 + s) / 2) * z), w * s * z, h * s * z);
+    ctx.globalAlpha = 1; ctx.filter = 'none';
+    shown.push([r, o, off]);
+  }
+  return shown;
+}
+// room names: hidden zoomed out (the map shows only the rooms), fading in from 0.8× to 1.2×, then growing
+// with the zoom up to full size. Long names wrap to the room's width.
+const NAMES_FROM = 0.8, NAMES_FULL = 1.2;
+function drawRoomNames(shown) {
+  const z = zoom();
+  if (z < NAMES_FROM) return;
+  ctx.save(); ctx.globalAlpha = Math.min(1, (z - NAMES_FROM) / (NAMES_FULL - NAMES_FROM));
+  const k = Math.max(5, Math.min(FS() * 1.35, room.width * z * 0.04)) / FS();
+  const base = ctx.globalAlpha;
+  for (const [r, o, off] of shown) {
+    ctx.globalAlpha = base * r.fade;
+    ctx.font = `${FB()} ${Math.round(FS() * k)}px ${PF()}`;
+    const lines = wrapText(r.label, Math.max(room.width * z * 0.9, 40) - 20 * k);
+    if (off && z >= 1.5) lines.push(`offline · ${ago(r.last)}`);
+    nameBox(lines, o.x + room.width * z / 2, o.y + 14 * z, off, k);
+  }
+  ctx.restore();
+}
+function wrapText(text, maxW) {
+  const out = []; let cur = '';
+  for (const w of text.split(' ')) { const t = cur ? cur + ' ' + w : w; if (cur && ctx.measureText(t).width > maxW) { out.push(cur); cur = w; } else cur = t; }
+  if (cur) out.push(cur); return out;
+}
+function nameBox(lines, cx, cy, dim, k) {
+  const fs = Math.round(FS() * k), lh = Math.round(fs * 1.25), u = 2;
+  ctx.font = `${FB()} ${fs}px ${PF()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 20 * k, h = lh * lines.length + 12 * k;
+  const a0 = ctx.globalAlpha; if (dim) ctx.globalAlpha = a0 * 0.85;
+  pixelBox(cx - w / 2, cy - h / 2, w, h, u);
+  lines.forEach((l, i) => {
+    const last = dim && i === lines.length - 1 && l.startsWith('offline');
+    ctx.font = `${last ? 400 : FB()} ${last ? Math.round(fs * 0.8) : fs}px ${PF()}`;
+    ctx.fillStyle = last || dim ? '#5d6170' : '#1c1d22';
+    ctx.fillText(l, Math.round(cx), Math.round(cy - h / 2 + 6 * k + lh * (i + 0.5) + 1));
+  });
+  ctx.globalAlpha = a0;
+}
+function frameFor(w, now) {
+  const c = getChar(w.charId);
+  if (w.state === 'waiting' || w.state === 'leaving') return { img: c.idleFrame(now) };
+  if (w.state === 'sleep') return { img: c.sleepFrame(now) };
+  const key = w.state === 'walking' ? { up: 'walk-back', down: 'walk-front', left: 'walk-left', right: 'walk-right' }[w.dir] : w.state;
+  const a = c.anim[key] || c.anim.typing;
+  const t = w.state === 'walking' ? w.walkT : (now - w.since) / 1000;
+  const img = a.set.frames[a.seq[Math.floor(t * a.fps) % a.seq.length]] || a.set.frames[0];
+  if (!img) console.error('no frame for', w.state, key);
+  return { img, flip: a.flip };
+}
+function drawZzz(x, y, now, k) {
+  for (let i = 0; i < 3; i++) {
+    const ph = ((now / 2400) + i / 3) % 1, size = Math.round((11 + i * 4) * k);
+    ctx.globalAlpha = ph < 0.8 ? 1 : (1 - ph) / 0.2;
+    ctx.font = `${FB()} ${size}px ${PF()}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    const zx = x + i * 12 * k + ph * 6 * k, zy = y - i * 14 * k - ph * 12 * k;
+    const o = Math.max(1, Math.round(k)); ctx.fillStyle = '#2a2050';            // pixel outline: the glyph drawn at 4 offsets, then white on top
+    for (const [ox, oy] of [[o, 0], [-o, 0], [0, o], [0, -o]]) ctx.fillText('Z', Math.round(zx + ox), Math.round(zy + oy));
+    ctx.fillStyle = '#fff'; ctx.fillText('Z', Math.round(zx), Math.round(zy));
+  }
+  ctx.globalAlpha = 1;
+}
+function drawWorker(w, now) {
+  const z = zoom(); const { img, flip } = frameFor(w, now); if (!img) return;
+  const s = toScreen(w.pos);
+  ctx.globalAlpha = w.state === 'leaving' ? Math.max(0, 1 - (now - w.since) / 1500) : 1; const wd = img.width * z, ht = img.height * z;
+  const x = Math.round(s.x - wd / 2), y = Math.round(s.y - ht + FOOT_PAD * z);
+  ctx.imageSmoothingEnabled = false;
+  if (flip) { ctx.save(); ctx.translate(x + wd, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, wd, ht); ctx.restore(); } else ctx.drawImage(img, x, y, wd, ht);
+  if (hideInfo) {                       // info hidden: just the character (sleepers keep their zzz over the head)
+    if (w.state === 'sleep') drawZzz(Math.round(s.x + wd * 0.15), y + 10 * z, now, Math.max(0.5, Math.min(1.6, z * 0.6)));
+    ctx.globalAlpha = 1; w.hit = [{ x, y, w: wd, h: ht }]; w.infoHit = w.bubble = null; return;
+  }
+  // bubble: who · chat · doing now. Fixed size on screen (does not grow with zoom), left aligned.
+  const u = 2, fs = FS(), fb = FB();
+  const lines = [[w.label, `${fb} ${Math.round(fs * 1.1)}px`, '#1c1d22'], [w.sub, `400 ${fs}px`, '#5d6170'], [w.doing, `400 ${fs}px`, '#4b2fd6']];
+  if (w.agents?.length) lines.push([`with ${w.agents.map(a => a.type).join(', ')}`, `400 ${fs}px`, '#a855f7']);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  const maxText = 20 * fs;
+  // the status square sits right after the name (the author, 2026-11-01), so every line starts at the left padding
+  const sq = Math.round(fs * 0.6), sqGap = Math.round(fs * 0.5);
+  const pl = 9, plGap = Math.round(fs * 1.2);   // the + in the bubble's top right corner opens the card (the author, 2026-11-02: the card only opens from here)
+  let bw = 0; lines.forEach((l, i) => { ctx.font = `${l[1]} ${PF()}`; l[0] = ellipsis(l[0], maxText); bw = Math.max(bw, ctx.measureText(l[0]).width + (i ? 0 : sqGap + sq + plGap + pl)); });
+  const pad = 10, lh = Math.round(fs * 1.3), bh = lh * lines.length + 14; bw = bw + pad * 2;   // same margin above and below
+  const top = y + 12 * z; const bx = Math.round(s.x - bw / 2), by = Math.round(top - bh - 14);
+  pixelBox(bx, by, bw, bh, u, s.x);
+  const base0 = by + 7 + Math.round(lh * 0.8);                                    // baseline of line 1
+  lines.forEach(([t, f, col], i) => { ctx.font = `${f} ${PF()}`; ctx.fillStyle = col; ctx.fillText(t, bx + pad, base0 + lh * i); });
+  ctx.font = `${lines[0][1]} ${PF()}`;
+  const sqX = Math.round(bx + pad + ctx.measureText(lines[0][0]).width + sqGap), sqY = base0 - Math.round(fs * 0.75);
+  ctx.fillStyle = DOT[w.state] || '#999'; ctx.fillRect(sqX, sqY, sq, sq);   // square right of the name, on its cap height
+  const px = bx + bw - 7 - pl, py = by + 7;   // pixel +, black on white
+  ctx.fillStyle = '#1c1d22'; ctx.fillRect(px, py + 3, pl, 3); ctx.fillRect(px + 3, py, 3, pl);
+  w.infoHit = { x: px - 8, y: py - 8, w: pl + 16, h: pl + 16 }; w.bubble = { x: bx, y: by, w: bw, h: bh };
+  const k = 1;
+  if (w.state === 'sleep') drawZzz(bx + bw - 24, by - 8, now, 1.6);
+  ctx.globalAlpha = 1;
+  w.hit = [{ x: bx, y: by, w: bw, h: bh }, { x, y, w: wd, h: ht }];   // bubble + sprite, for clicks
+}
+
+// ───────── update ─────────
+let last = performance.now();
+function tick(now) {
+  const dt = Math.min(0.5, (now - last) / 1000); last = now;   // real time, so slow or background tabs keep pace
+  easeZoom(dt);
+  for (const w of workers.values()) {
+    if (w.state === 'leaving') { if (now - w.since > 1500) { workers.delete(w.id); renderSide(); } continue; }
+    if (w.state === 'walking') {
+      if (w.path.length) {
+        const t = w.path[0], dx = t.x - w.pos.x, dy = t.y - w.pos.y, d = Math.hypot(dx, dy), speed = 34;
+        w.dir = Math.abs(dx) * 0.5 > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+        if (d <= speed * dt) { w.pos = { ...t }; w.path.shift(); } else { w.pos.x += dx / d * speed * dt; w.pos.y += dy / d * speed * dt; }
+        w.walkT += dt;
+      } else { w.state = w.pending || 'waiting'; w.since = now; renderSide(); }
+    }
+  }
+  const f = followId && workers.get(followId);
+  if (f) { stopFly(); cam.x += (f.pos.x - cam.x) * Math.min(1, dt * 4); cam.y += (f.pos.y - 30 - cam.y) * Math.min(1, dt * 4); }
+  else if (flyTo) stepFly(now);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  const shown = drawRooms(); drawRoomNames(shown);
+  [...workers.values()].sort((a, b) => (a.id === topId) - (b.id === topId) || a.pos.y - b.pos.y).forEach(w => drawWorker(w, now));   // clicked one last = on top
+  placeCard();
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// ───────── controls ─────────
+let zoomAnchor = null;
+function setZoom(target, anchor, instant) {
+  zoomT = Math.max(ZMIN, Math.min(ZMAX, target)); zoomAnchor = anchor || null;
+  if (instant) { zoomV = zoomT; zoomAnchor = null; }
+  document.getElementById('zoomBtn').textContent = `${Math.round(zoomT * 100)}% ▾`;
+}
+function easeZoom(dt) {
+  if (flyTo) return;                    // a flight drives the zoom itself
+  if (Math.abs(zoomV - zoomT) < 0.001) { zoomV = zoomT; return; }
+  const before = zoomAnchor ? toWorld(zoomAnchor) : null;
+  zoomV += (zoomT - zoomV) * Math.min(1, dt * 12);
+  if (before) { const after = toWorld(zoomAnchor); cam.x += before.x - after.x; cam.y += before.y - after.y; }
+}
+// zoom menu: in / out / fixed sizes (100% = room art at its own pixel size)
+const zoomBtn = document.getElementById('zoomBtn'), zoomMenu = document.getElementById('zoomMenu');
+const showZoomMenu = open => { zoomMenu.hidden = !open; zoomBtn.setAttribute('aria-expanded', open); };
+zoomBtn.onclick = e => { e.stopPropagation(); showZoomMenu(zoomMenu.hidden); };
+document.addEventListener('pointerdown', e => { if (!zoomMenu.parentElement.contains(e.target)) showZoomMenu(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') showZoomMenu(false); });
+zoomMenu.onclick = e => {
+  const b = e.target.closest('[data-zoom]'); if (!b) return;
+  const v = b.dataset.zoom; stopFly();
+  setZoom(v === 'in' ? zoomT * 1.3 : v === 'out' ? zoomT / 1.3 : +v);
+  if (v !== 'in' && v !== 'out') showZoomMenu(false);   // in / out stay open for repeated clicks
+};
+document.getElementById('fit').onclick = () => fitAll(true);
+pollLive().then(fitAll); setInterval(pollLive, 3000);
+pollHistory(); setInterval(pollHistory, 60000);
+canvas.addEventListener('wheel', e => { e.preventDefault(); stopFly(); setZoom(zoomT * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025)), { x: e.clientX, y: e.clientY }); }, { passive: false });
+let topId = null;
+function hitInfo(sx, sy) { for (const w of [...workers.values()].reverse()) { const r = w.infoHit; if (r && sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) return w; } return null; }
+canvas.addEventListener('mousemove', e => { if (!e.buttons) canvas.style.cursor = hitInfo(e.clientX, e.clientY) ? 'pointer' : ''; });
+function hitWorker(sx, sy) { for (const w of [...workers.values()].reverse()) for (const r of w.hit || []) if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) return w; return null; }
+let drag = null; const touches = new Map(); let pinch = null; let downAt = null;
+canvas.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; try { canvas.setPointerCapture(e.pointerId); } catch {} touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (touches.size === 1) { drag = { x: e.clientX, y: e.clientY }; canvas.classList.add('dragging'); } else if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoomT }; drag = null; } });
+canvas.addEventListener('pointermove', e => {
+  if (!touches.has(e.pointerId)) return; touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); setZoom(pinch.z * d / pinch.d, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }); return; }
+  if (drag) { followId = null; stopFly(); roomPick.value = ''; cam.x -= (e.clientX - drag.x) / zoom(); cam.y -= (e.clientY - drag.y) / zoom(); drag = { x: e.clientX, y: e.clientY }; }
+});
+let lastTap = null;   // touch: two taps within 300 ms = a double click
+const endPointer = e => { if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 4) {
+  if (e.pointerType === 'touch' && e.type === 'pointerup') { const t = performance.now(); if (lastTap && t - lastTap.t < 300 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) { lastTap = null; downAt = null; touches.delete(e.pointerId); if (!touches.size) { drag = null; canvas.classList.remove('dragging'); } roomZoomToggle(e.clientX, e.clientY); return; } lastTap = { t, x: e.clientX, y: e.clientY }; } const iw = hitInfo(e.clientX, e.clientY), w = iw || hitWorker(e.clientX, e.clientY); topId = w ? w.id : topId; if (iw) openCard(iw.id); else if (!w) openCard(null); } downAt = null; touches.delete(e.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; canvas.classList.remove('dragging'); } };
+canvas.addEventListener('pointerup', endPointer); canvas.addEventListener('pointercancel', endPointer);
+// double click a room = zoom into it; the next double click = back to where you were
+function roomUnder(sx, sy) {   // the room whose picture is under the pointer (its own pixels, front rooms first); a character counts for its room
+  const w = hitWorker(sx, sy); if (w) return w.room;
+  const p = toWorld({ x: sx, y: sy });
+  for (const [name, r] of [...rooms.entries()].sort((a, b) => b[1].y - a[1].y)) {
+    if (activeOnly && !r.active) continue;
+    const im = roomImg(name); if (!im?.width) continue;
+    const f = Math.min(room.width / im.width, room.height / im.height);
+    const ix = Math.floor((p.x - r.x - (room.width - im.width * f) / 2) / f), iy = Math.floor((p.y - r.y - (room.height - im.height * f)) / f);
+    if (ix < 0 || iy < 0 || ix >= im.width || iy >= im.height) continue;
+    if (alphaAt(im, ix, iy) > 20) return name;
+  }
+  return null;
+}
+const alphaCache = new Map();
+function alphaAt(im, x, y) {
+  let d = alphaCache.get(im);
+  if (!d) { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; const g = c.getContext('2d'); g.drawImage(im, 0, 0); d = g.getImageData(0, 0, im.width, im.height).data; alphaCache.set(im, d); }
+  return d[(y * im.width + x) * 4 + 3];
+}
+canvas.addEventListener('dblclick', e => { if (performance.now() - (lastTapZoom || 0) > 500) roomZoomToggle(e.clientX, e.clientY); });   // touch double taps are handled on pointerup
+let lastTapZoom = 0;
+function roomZoomToggle(x, y) {
+  lastTapZoom = performance.now();
+  if (roomZoomBack) { const b = roomZoomBack; roomZoomBack = null; followId = null; roomPick.value = ''; renderSide(); startFly(b.cam.x, b.cam.y, b.zoom); return; }
+  const name = roomUnder(x, y); if (!name) return;
+  const back = { cam: { ...cam }, zoom: zoomT };
+  roomPick.value = name; flyToRoom(); roomZoomBack = back;
+}
+window.addEventListener('keydown', e => {
+  const step = 30 / zoom(); const k = e.key;
+  if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(k)) { followId = null; stopFly(); roomPick.value = ''; }
+  if (k === 'ArrowLeft') cam.x -= step; if (k === 'ArrowRight') cam.x += step; if (k === 'ArrowUp') cam.y -= step; if (k === 'ArrowDown') cam.y += step;
+  if (k === '+' || k === '=') setZoom(zoomT * 1.3); if (k === '-') setZoom(zoomT / 1.3);
+});
+setView(location.hash.slice(1));      // open on the tab in the address (#agents / #skills)
+openWelcome(false);                   // the new-user preview opens on the welcome card, once
+window.officeDebug = () => [...workers.values()].map(w => ({ id: w.id, room: w.room, state: w.state, spot: w.spot, pos: [Math.round(w.pos.x), Math.round(w.pos.y)], path: w.path.map(p => [Math.round(p.x), Math.round(p.y)]) }));
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+node_modules/
+.cache/
+public/sprites/rooms/_preview/
+public/sprites/rooms/_drafts/
+public/sprites/rooms/_old/
+public/sprites/rooms/mine/
+public/sprites/rooms/index.json
+.DS_Store

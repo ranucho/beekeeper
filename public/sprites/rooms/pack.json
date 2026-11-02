@@ -1,0 +1,102 @@
+[
+  {
+    "id": "office",
+    "name": "Office",
+    "file": "office.cut.png"
+  },
+  {
+    "id": "jungle",
+    "name": "Jungle treehouse",
+    "file": "jungle.cut.png"
+  },
+  {
+    "id": "lab",
+    "name": "Lab",
+    "file": "lab.cut.png"
+  },
+  {
+    "id": "candy-land",
+    "name": "Candy land",
+    "file": "candy-land.cut.png"
+  },
+  {
+    "id": "workspace",
+    "name": "Workspace",
+    "file": "workspace.cut.png"
+  },
+  {
+    "id": "spaceship",
+    "name": "Spaceship",
+    "file": "spaceship.cut.png"
+  },
+  {
+    "id": "coffee-shop",
+    "name": "Coffee shop",
+    "file": "coffee-shop.cut.png"
+  },
+  {
+    "id": "island",
+    "name": "Island hut",
+    "file": "island.cut.png"
+  },
+  {
+    "id": "library",
+    "name": "Library",
+    "file": "library.cut.png"
+  },
+  {
+    "id": "arcade",
+    "name": "Arcade",
+    "file": "arcade.cut.png"
+  },
+  {
+    "id": "studio-office",
+    "name": "Studio office",
+    "file": "studio-office.cut.png"
+  },
+  {
+    "id": "tea-house",
+    "name": "Tea house",
+    "file": "tea-house.cut.png"
+  },
+  {
+    "id": "pirate-cabin",
+    "name": "Pirate cabin",
+    "file": "pirate-cabin.cut.png"
+  },
+  {
+    "id": "art-studio",
+    "name": "Art studio",
+    "file": "art-studio.cut.png"
+  },
+  {
+    "id": "ski-cabin",
+    "name": "Ski cabin",
+    "file": "ski-cabin.cut.png"
+  },
+  {
+    "id": "wizard-tower",
+    "name": "Wizard tower",
+    "file": "wizard-tower.cut.png"
+  },
+  {
+    "id": "desert",
+    "name": "Desert camp",
+    "file": "desert.cut.png"
+  },
+  {
+    "id": "music-room",
+    "name": "Music room",
+    "file": "music-room.cut.png"
+  },
+  {
+    "id": "underwater",
+    "name": "Underwater base",
+    "file": "underwater.cut.png"
+  },
+  {
+    "id": "cyberpunk",
+    "name": "Cyberpunk hideout",
+    "file": "cyberpunk.cut.png"
+  }
+]
