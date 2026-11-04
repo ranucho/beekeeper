@@ -109,7 +109,7 @@
   .tcard .st b { color: var(--ink); font-size: 15px; margin-right: 3px; }
   .ptags { display: flex; flex-wrap: wrap; gap: 4px; }
   .ptags span { border: 2px solid #c9c4de; padding: 1px 6px; font-size: 12px; background: #f7f6fb; }
-  .jump { display: flex; flex-wrap: wrap; gap: 10px; position: sticky; top: -16px; padding: 8px 0; background: var(--bg); z-index: 1; }
+  .jump { display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 0; }   /* scrolls away with the page (the author, 2026-11-04: not sticky) */
   .view::before { content: ''; position: fixed; left: 0; right: 0; top: 0; height: 64px; background: var(--bg); z-index: 1; }   /* the tabs sit on a solid strip, so scrolled content never shows behind them */
   .jump a { text-decoration: none; color: var(--ink); border: 2px solid #2a2050; background: #fff; padding: 8px 14px; font: 700 16px "Silkscreen", monospace; }
   .jump a:hover { background: #efeaff; }
@@ -277,7 +277,8 @@
     .card { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-width: none; max-height: 72vh; }
     .view { padding: 70px 16px 40px; }
     .view h2.gt { font-size: 28px; }
-    .usage { top: auto; bottom: 12px; left: 12px; right: auto; width: calc(50% - 18px); }   /* usage sits bottom left, half the width */
+    .usage { top: auto; bottom: 12px; left: 22px; right: auto; width: calc(50% - 28px); }   /* usage sits bottom left, half the width, clear of the phone's rounded corner */
+    .tools .pick:has(#zoomBtn) { display: none; }   /* phones pinch to zoom: no zoom menu */
     .usage .ur, .usage .ux { column-gap: 6px; }
   }
 </style>
@@ -442,7 +443,7 @@ function bodyOf(im) {   // the creature's resting body inside its frame box (fra
   for (let y = 0; y < im.height; y++) for (let x = 0; x < im.width; x++) if (d[(y * im.width + x) * 4 + 3]) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1); }
   return { x0, y0, x1, y1 };
 }
-const AUTO_PETS = true;   // true in the public copy: every skill gets a creature from the whole cast, picked by its name, so anyone's skills have pets
+const AUTO_PETS = true;   // every skill gets a creature: its own one if it has one, else one from the whole cast picked by its name (the author, 2026-11-04: repeats ok)
 const CREATURES = { bySkill: {}, fallback: null, all: [] };
 try {
   for (const c of await (await fetch(`/sprites/creatures/index.json?v=${V}`, { cache: 'no-store' })).json()) {
@@ -454,9 +455,10 @@ try {
     if (c.default) CREATURES.fallback = cr; else if (c.skill) CREATURES.bySkill[c.skill] = cr;
   }
 } catch {}
+const petPool = () => { const free = CREATURES.all.filter(c => !c.skill && !c.default); return free.length ? free : CREATURES.all; };   // creatures with a skill of their own keep it to themselves
 const pickByName = (name, list) => { let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return list[h % list.length]; };
 const creatureFor = skill => { const name = String(skill).split(':').pop();
-  return CREATURES.bySkill[skill] || CREATURES.bySkill[name] || (AUTO_PETS && CREATURES.all.length ? pickByName(name, CREATURES.all) : CREATURES.fallback); };
+  return CREATURES.bySkill[skill] || CREATURES.bySkill[name] || (AUTO_PETS && CREATURES.all.length ? (PET_MAP?.[name] || pickByName(name, petPool())) : CREATURES.fallback); };
 const creatureFrame = (c, now) => c.frames[c.seq[Math.floor(now / 1000 * c.fps) % c.seq.length]] || c.frames[0];
 function updatePets(w, dt) {   // which creatures this worker should have now, each fading in or out over half a second
   const want = new Set();
@@ -942,7 +944,16 @@ let SKILL_GROUPS = null, SKILLS = [];
 async function loadSkills() {
   try { SKILL_GROUPS = await (await fetch('/data/skill-groups.json', { cache: 'no-store' })).json(); } catch { SKILL_GROUPS = { groups: [], skills: {} }; }
   try { SKILLS = (await (await fetch('/api/skills')).json()).skills || []; } catch {}
+  buildPetMap();
 }
+// every skill without a creature of its own gets one of the spare creatures, dealt out in turn (alphabetical), so each plays 3-4 skills
+let PET_MAP = null;
+function buildPetMap() {
+  const pool = petPool().slice().sort((a, b) => a.id.localeCompare(b.id)); if (!pool.length) return;
+  const own = s => CREATURES.bySkill[s] || CREATURES.bySkill[s.split(':').pop()];
+  PET_MAP = {}; SKILLS.map(sk => sk.id).filter(id => !own(id)).sort().forEach((id, i) => { PET_MAP[id.split(':').pop()] = pool[i % pool.length]; });
+}
+loadSkills();   // at start too, so the Hive and the Skills tab give a skill the same creature
 function renderSkillsView() {
   const el = document.getElementById('viewSkills');
   if (!SKILL_GROUPS) { el.innerHTML = '<h1>My skills</h1><p class="lead">Loading…</p>'; loadSkills().then(() => view === 'skills' && renderSkillsView()); return; }
@@ -964,7 +975,7 @@ function renderSkillsView() {
   startSkillPets();
 }
 // a skill's own creature (the "any other skill" drone stays in the Hive only, so the list is not 70 drones)
-const petOfSkill = id => { const name = String(id).split(':').pop(); return CREATURES.bySkill[id] || CREATURES.bySkill[name] || (AUTO_PETS && CREATURES.all.length ? pickByName(name, CREATURES.all) : null); };
+const petOfSkill = id => { const name = String(id).split(':').pop(); return CREATURES.bySkill[id] || CREATURES.bySkill[name] || (AUTO_PETS && CREATURES.all.length ? (PET_MAP?.[name] || pickByName(name, petPool())) : null); };
 let skillPetsOn = false;
 function startSkillPets() {
   if (skillPetsOn) return; skillPetsOn = true;
