@@ -248,8 +248,8 @@
   .usage { position: fixed; right: 16px; top: 16px; width: 250px; height: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; text-align: left; font: 700 15px/1.2 "Silkscreen", monospace; color: #2a2050; z-index: 3; }
   .usage:hover { background: #fbfaff; }
   .usage[hidden] { display: none; }
-  .usage .ur, .usage .ux { display: flex; flex-direction: column; gap: 7px; }
-  .usage .uc { display: grid; grid-template-columns: 6ch 1fr 4ch; align-items: center; gap: 8px; }
+  .usage .ur, .usage .ux { display: grid; grid-template-columns: max-content 1fr max-content; align-items: center; gap: 7px 8px; }   /* one row per limit: name · bar · % */
+  .usage .uc { display: contents; }
   .usage .uc b { text-align: right; }
   .usage .ub { height: 10px; border: 2px solid #2a2050; background: #fff; box-sizing: content-box; }
   .usage .ub i { display: block; height: 100%; background: #8b7cf6; }
@@ -263,7 +263,7 @@
     .help, .legend, .side .head { display: none; }
     .hud { left: 12px; right: 12px; top: 10px; flex-wrap: wrap; gap: 6px; }
     .tabcol { width: 100%; display: flex; flex-direction: column; gap: 6px; }
-    .tabcol #status { position: static; height: 28px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; display: block; line-height: 26px; }
+    .tabcol #status, #freshBtn, .side { display: none !important; }   /* the author, 2026-11-04: no computer line, no Try as new user, no chat strip on phones */
     .tabs button { flex: 1; font-size: 15px; }
     .tools { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }   /* the author: two lines, every option visible */
     .tools > button, .tools .pick { flex: 1 1 auto; white-space: nowrap; padding: 0 10px; }
@@ -275,7 +275,8 @@
     .card { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-width: none; max-height: 72vh; }
     .view { padding: 70px 16px 40px; }
     .view h2.gt { font-size: 28px; }
-    .usage { position: static; width: 100%; order: 9; }
+    .usage { top: auto; bottom: 12px; left: 12px; right: auto; width: calc(50% - 18px); }   /* usage sits bottom left, half the width */
+    .usage .ur, .usage .ux { column-gap: 6px; }
   }
 </style>
 </head>
@@ -541,9 +542,11 @@ function measureHive() {
 const HIVE = measureHive();
 // Phones get a portrait honeycomb: the column count that shows every room biggest on a tall screen.
 const PHONE = window.innerWidth <= 700;
+// phone: the lowest point the map may use (just above the usage widget)
+function phoneBottom() { const u = document.getElementById('usage'); return u && !u.hidden ? u.getBoundingClientRect().top - 8 : canvas.clientHeight - 8; }
 function hiveCols(n, desktop) {
   if (!PHONE) return desktop;
-  const W = window.innerWidth - 24, H = window.innerHeight - 330;   // the space between the top bar and the chat strip
+  const W = window.innerWidth - 24, H = phoneBottom() - (document.querySelector('.hud').getBoundingClientRect().bottom + 8);   // the space between the top bar and the usage widget
   let best = 1, bs = 0;
   for (let c = 1; c <= n; c++) {
     const r = Math.ceil(n / c), w = c * (room.width + ROOM_GAP) + (r > 1 ? HIVE.shiftX : 0), h = (r - 1) * HIVE.stepY + room.height;
@@ -636,8 +639,8 @@ function flyToRoom() {
   const r = rooms.get(roomPick.value); if (!r) return;
   roomZoomBack = null;
   followId = null; renderSide();
-  if (window.innerWidth <= 700) {   // phone: fit the room between the top bar and the list at the bottom
-    const top = document.querySelector('.hud').getBoundingClientRect().bottom + 8, bottom = document.getElementById('side').getBoundingClientRect().top - 8;
+  if (window.innerWidth <= 700) {   // phone: fit the room between the top bar and the usage widget
+    const top = document.querySelector('.hud').getBoundingClientRect().bottom + 8, bottom = phoneBottom();
     const z = Math.max(ZMIN, Math.min(ZMAX, Math.min((canvas.clientWidth - 24) / room.width, (bottom - top) / room.height)));
     return startFly(r.x + room.width / 2, r.y + room.height / 2 - ((top + bottom) / 2 - canvas.clientHeight / 2) / z, z);
   }
@@ -722,7 +725,7 @@ addEventListener('resize', placeSide);
 async function pollLive() {
   try {
     const r = await fetch('/api/live', { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status);
-    live = await r.json(); liveError = null; applyLive(live); renderUsage(live.usage);
+    live = await r.json(); liveError = null; renderUsage(live.usage); applyLive(live);
   } catch (e) { liveError = e.message; }
   document.getElementById('status').textContent = liveError ? 'offline: ' + liveError : `${live.machine} · ${live.sessions.length} chats · ${new Date(live.generatedAt).toLocaleTimeString()}`;
 }
@@ -1306,8 +1309,8 @@ function fitAll(animate) {   // the Fit all button glides out; the first load ju
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const r of vis) { const p = r.target || r; x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x + room.width); y1 = Math.max(y1, p.y + room.height); }
   const phone = window.innerWidth <= 700;                            // phone: the bars are above and below, not on the side
-  const topH = phone ? document.querySelector('.hud').getBoundingClientRect().bottom + 8 : 0;   // phone: fit between the top bar and the chat strip
-  const side = document.getElementById('side'), botH = phone ? (side.children.length ? canvas.clientHeight - side.getBoundingClientRect().top : 0) + 8 : 0;
+  const topH = phone ? document.querySelector('.hud').getBoundingClientRect().bottom + 8 : 0;   // phone: fit between the top bar and the usage widget
+  const side = document.getElementById('side'), botH = phone ? canvas.clientHeight - phoneBottom() : 0;
   const z = Math.min(2, (canvas.clientWidth - (phone ? 24 : 300)) / (x1 - x0 + 20), (canvas.clientHeight - (phone ? topH + botH : 120)) / (y1 - y0 + 20));
   const sideW = phone ? 0 : side.offsetWidth + 16;                   // centre in the space left of the side list
   const cx = (x0 + x1) / 2 + sideW / 2 / z, cy = (y0 + y1) / 2 - (topH - botH) / 2 / z;
