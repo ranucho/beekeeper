@@ -246,7 +246,7 @@
   .sed .acts button:disabled { opacity: .5; cursor: default; }
   .sed .warn { color: #a16207; font-size: 13px; margin: 0; }
   @media (max-width: 700px) { .sed .pair { grid-template-columns: 1fr; } .rgrid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
-  /* plan usage: always in the top right corner, on every tab; painted yellow from 80 %, red from 92 % (the author switches account there) */
+  /* plan usage: top right corner of the Hive; painted yellow from 70 %, red over 80 % */
   .usage { position: fixed; right: 16px; top: 16px; width: 250px; height: auto; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; text-align: left; font: 700 15px/1.2 "Silkscreen", monospace; color: #2a2050; z-index: 3; }
   .usage:hover { background: #fbfaff; }
   .usage[hidden] { display: none; }
@@ -697,7 +697,7 @@ const agentName = t => NAME_MAP[t] || AGENT_INFO[t]?.name || BUILTIN[t] || prett
 const agentRole = t => AGENT_INFO[t]?.role || (BUILTIN[t] ? `Built-in ${t} agent` : 'Agent');
 let live = null, liveError = null, lastActiveSig = null, placedOnce = false;
 // ───────── plan usage pill (top right) ─────────
-const U_WARN = 80, U_HOT = 92;
+const U_WARN = 70, U_HOT = 80;   // the author, 2026-11-04: plain while fine, yellow when getting close to 80 %, red over 80 %
 let usageOpen = false; try { usageOpen = localStorage.getItem('bk-usage-open') === '1'; } catch {}
 function untilText(iso) {
   const ms = Date.parse(iso) - Date.now(); if (!(ms > 0)) return 'resetting now';
@@ -709,7 +709,7 @@ function renderUsage(u) {
   const ws = u?.windows || [];
   el.hidden = !ws.length;
   if (!ws.length) { placeSide(); return; }
-  const lvl = p => p >= U_HOT ? 'hot' : p >= U_WARN ? 'warn' : '';
+  const lvl = p => p > U_HOT ? 'hot' : p >= U_WARN ? 'warn' : '';
   const worst = Math.max(...ws.map(w => w.pct));
   el.className = 'usage px office-only ' + lvl(worst);   // Hive only (the author, 2026-11-04)
   el.setAttribute('aria-expanded', usageOpen);

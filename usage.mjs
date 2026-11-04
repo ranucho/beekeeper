@@ -14,7 +14,8 @@ export const USAGE_FILE = path.join(DIR, 'usage.json');
 const TRY_FILE = path.join(DIR, 'usage.try');       // when any process last asked (server.js and push.mjs share it)
 const NUDGE_FILE = path.join(DIR, 'usage.nudge');   // when Claude Code was last asked to renew its login
 const STALE_AFTER = 6 * 60 * 60 * 1000;             // older than 6 h: not shown (the 5-hour window has moved on)
-const EVERY = 60 * 1000, BACKOFF = 5 * 60 * 1000, NUDGE_EVERY = 6 * 60 * 60 * 1000;
+const EVERY = 90 * 1000, BACKOFF = 3 * 60 * 1000, NUDGE_EVERY = 6 * 60 * 60 * 1000;   // the Claude app asks the same endpoint for the same account: every 90 s keeps clear of its limit
+const LOG_FILE = path.join(DIR, 'usage.log');   // one line per request (time, answer), last 300 kept: to see how often Anthropic says no
 const RENEW = !!process.env.BK_RENEW;            // let Claude Code renew an expired login (the public copy: only with BK_RENEW=1)
 
 export function readUsage(now = Date.now()) {
@@ -28,6 +29,7 @@ export function readUsage(now = Date.now()) {
 
 const age = f => { try { return Date.now() - fs.statSync(f).mtimeMs; } catch { return Infinity; } };
 const touch = f => { try { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(f, String(Date.now())); } catch {} };
+function log(line) { try { const old = fs.existsSync(LOG_FILE) ? fs.readFileSync(LOG_FILE, 'utf8').split('\n').filter(Boolean).slice(-299) : []; fs.writeFileSync(LOG_FILE, [...old, new Date().toISOString() + ' ' + line].join('\n') + '\n'); } catch {} }
 const run = (cmd, args, ms) => new Promise(res => execFile(cmd, args, { timeout: ms, maxBuffer: 1 << 20 }, (e, out) => res(e ? null : String(out))));
 
 async function readLogin() {
@@ -73,7 +75,11 @@ async function refreshUsage() {
       login = await readLogin(); if (!login) return;
     }
     const r = await fetch('https://api.anthropic.com/api/oauth/usage', { headers: { Authorization: 'Bearer ' + login.accessToken, 'anthropic-beta': 'oauth-2025-04-20' }, signal: AbortSignal.timeout(10000) });
-    if (r.status === 429) { fs.utimesSync(TRY_FILE, new Date(Date.now() + BACKOFF), new Date(Date.now() + BACKOFF)); return; }   // asked too often: wait 5 min
+    log(String(r.status) + (r.headers.get('retry-after') ? ' retry-after ' + r.headers.get('retry-after') : ''));
+    if (r.status === 429) {                                             // asked too often: wait as long as Anthropic says, else 3 min
+      const ra = Number(r.headers.get('retry-after')), wait = ra > 0 ? Math.min(ra * 1000, 15 * 60 * 1000) : BACKOFF;
+      const t = new Date(Date.now() + wait - EVERY); fs.utimesSync(TRY_FILE, t, t); return;
+    }
     if (!r.ok) return;
     const windows = toWindows(await r.json());
     if (!windows.length) return;
