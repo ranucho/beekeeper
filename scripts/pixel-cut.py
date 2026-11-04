@@ -34,7 +34,7 @@ def detect_block(im, prefer=None):
     return n, (ox + 1) % n, (oy + 1) % n                # diff index j = boundary at j+1
 
 
-def resample(im, n, ox, oy, key=True):
+def resample(im, n, ox, oy, key=True, spill=True):
     """One colour per block = the majority colour of the block's inner pixels (a 25% margin is
     skipped on each side, so anti-aliased block borders never vote)."""
     a = np.asarray(im.convert('RGBA')).astype(int); h, w = a.shape[:2]
@@ -54,7 +54,7 @@ def resample(im, n, ox, oy, key=True):
             vals, cnt = np.unique(keys, return_counts=True); k = vals[cnt.argmax()]
             sel = fg[keys == k].mean(axis=0).astype(int)
             r_, g_, b_ = int(sel[0]), int(sel[1]), int(sel[2])
-            if r_ > g_ + 60 and b_ > g_ + 60: r_, b_ = g_ + 60, g_ + 60     # magenta spill
+            if spill and r_ > g_ + 60 and b_ > g_ + 60: r_, b_ = g_ + 60, g_ + 60     # magenta spill
             op[c, r] = (r_, g_, b_, 255)
     return out
 
@@ -97,7 +97,29 @@ if job == 'room':
     im = Image.open(os.path.join(SPR, 'rooms', f'{room}.png'))
     n, ox, oy = detect_block(im, prefer=(4.4, 6.2))
     print(f'{room}: block {n:.2f}px, phase ({ox:.1f},{oy:.1f})')
-    small = clear_backdrop(quantize(resample(im, n, ox, oy), 96))
+    small = resample(im, n, ox, oy)
+    # Things the model paints magenta or green inside the room (a purple cabinet, pink neon, green trim) match the backdrop key and came out
+    # as see-through holes (the author, 2026-11-04: "white stains all over"). Only key colour reachable from the picture's edge is backdrop:
+    # a hole enclosed by the room gets its drawn colour back.
+    k = np.asarray(small).copy(); clear = k[..., 3] == 0
+    outside = np.zeros_like(clear); outside[[0, -1], :] = clear[[0, -1], :]; outside[:, [0, -1]] |= clear[:, [0, -1]]
+    while True:
+        g = outside.copy(); g[1:, :] |= outside[:-1, :]; g[:-1, :] |= outside[1:, :]; g[:, 1:] |= outside[:, :-1]; g[:, :-1] |= outside[:, 1:]
+        g &= clear
+        if (g == outside).all(): break
+        outside = g
+    holes = clear & ~outside
+    if holes.any():
+        k[holes] = np.asarray(resample(im, n, ox, oy, key=False, spill=False))[holes]; small = Image.fromarray(k)
+        print(f'  filled {int(holes.sum())} hole pixels')
+    small = clear_backdrop(quantize(small, 96))
     small = small.crop(small.getbbox())
     small.save(os.path.join(SPR, 'rooms', f'{room}.cut.png'))
     print(f'  -> {small.size[0]}x{small.size[1]}')
+    # Grain: the model sometimes draws on a grid twice as big (10 px blocks); cut on the 5 px grid, every art pixel then comes out doubled
+    # (a half-resolution, chunky room) and colour changes sit only on every other column and row. Good rooms measure 0.4-1.0, doubled ones 0.1-0.3.
+    a = np.asarray(small.convert('RGBA')).astype(int); op = a[..., 3] > 200
+    edges_x = ((np.abs(np.diff(a[..., :3], axis=1)).sum(-1) > 30) & op[:, 1:] & op[:, :-1]).sum(0)
+    edges_y = ((np.abs(np.diff(a[..., :3], axis=0)).sum(-1) > 30) & op[1:] & op[:-1]).sum(1)
+    grain = max(min(e[0::2].sum(), e[1::2].sum()) / max(e[0::2].sum(), e[1::2].sum(), 1) for e in (edges_x, edges_y))
+    print(f'  grain {grain:.2f}' + ('  (doubled pixels: drawn on a coarse grid)' if grain < 0.35 else ''))

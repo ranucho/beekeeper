@@ -113,7 +113,7 @@ function draw(profile, project, theme, refFiles, autoKeep = false) {
     const rm = name => { for (const ext of ['.png', '.cut.png', '.ink.png']) fs.rmSync(path.join(DRAFTS, name + ext), { force: true }); };
     const wantsDark = /\b(black|dark\w*|night\w*|goth\w*|metal|noir|shadow\w*|haunt\w*|neon|cyber\w*|midnight|vampire|horror|hell\w*|demon\w*|devil\w*|evil|spook\w*|lava|volcan\w*|dungeon|cave\w*|crypt|grave\w*|witch\w*|fire)\b/i.test(theme);   // a dark theme the user asked for gets a looser darkness limit
     const CORE = wantsDark ? 0.09 : 0.04;   // share of the room covered by dark patches (stains / black areas); good rooms measure <= 0.011, stained ones >= 0.031
-    const score = (w, h, core) => (w < MIN_W || w > MAX_W ? 1 : 0) + (core > CORE ? 1 : 0) + Math.max(0, h / w - 0.96) + Math.abs(w - 392) / 784 + core * 4;   // 0 = a good room; otherwise the closest to a normal size, and the least stained, wins
+    const score = (w, h, core, coarse) => (w < MIN_W || w > MAX_W ? 1 : 0) + (core > CORE ? 1 : 0) + (coarse ? 1 : 0) + Math.max(0, h / w - 0.96) + Math.abs(w - 392) / 784 + core * 4;   // 0 = a good room; otherwise the closest to a normal size, and the least stained, wins
     let best = null, lastErr = null;
     const attempt = async a => {                         // one full try: draw, cut, measure
       const name = `${draft}-a${a}`;
@@ -122,10 +122,11 @@ function draw(profile, project, theme, refFiles, autoKeep = false) {
         const cut = await run('python3', ['scripts/pixel-cut.py', 'room', `_drafts/${name}`]);
         const [, w, h] = (cut.match(/-> (\d+)x(\d+)/) || []).map(Number);
         if (!w) throw new Error('The room could not be cut out');
+        const grain = Number((cut.match(/grain ([\d.]+)/) || [])[1] ?? 1), coarse = grain < 0.35;   // drawn on a 2x grid: every pixel doubled, half the detail of the other rooms (the author, 2026-11-04: "simpler and lower resolution")
         const [dark, vdark, core] = (await run('python3', ['scripts/pixel-dark.py', `_drafts/${name}`])).trim().split(/\s+/).map(Number);
-        const good = w >= MIN_W && w <= MAX_W && h / w <= 0.96 && (core || 0) <= CORE;
-        console.log(`[studio] ${project} try ${a}: ${w}x${h} dark ${dark} very dark ${vdark} stains ${core} -> ${good ? 'good' : 'redraw'}`);
-        return { name, w, h, core: core || 0, s: score(w, h, core || 0), good };
+        const good = w >= MIN_W && w <= MAX_W && h / w <= 0.96 && (core || 0) <= CORE && !coarse;
+        console.log(`[studio] ${project} try ${a}: ${w}x${h} grain ${grain} dark ${dark} very dark ${vdark} stains ${core} -> ${good ? 'good' : 'redraw'}`);
+        return { name, w, h, core: core || 0, s: score(w, h, core || 0, coarse), good };
       } catch (e) { lastErr = e; console.log(`[studio] ${project} try ${a} failed: ${String(e.message || e).slice(0, 200)}`); rm(name); return null; }
     };
     const consider = r => { if (!r) return; if (!best || r.s < best.s) { if (best) rm(best.name); best = r; } else rm(r.name); };
