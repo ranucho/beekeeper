@@ -23,6 +23,7 @@
 - **Agents:** every agent found in your Claude folders, with its record: calls, projects, last jobs.
 
 - **Skills:** your skills with how often you used them.
+- **Skill creatures:** when a chat uses a skill, a little pixel pet or flyer joins its worker, with the skill's name above it.
 - **Studio:** pick which character plays each agent, pick a room for each project, or draw your own.
 
 

@@ -60,6 +60,7 @@ export function readSession(file, now = Date.now()) {
   let plan = null, planAt = 0;
   const agents = new Map();            // tool_use id → { type, description, since, until }
   const skills = [];
+  let turnStart = 0;                   // when the current turn began (the last message that is not a tool result): skill creatures stay for the turn
   let sidechain = 0, main = 0;
 
   for (const r of recs) {
@@ -78,6 +79,7 @@ export function readSession(file, now = Date.now()) {
     const ts = r.timestamp ? Date.parse(r.timestamp) : 0;
     if (ts > lastActivity) { lastActivity = ts; lastRole = r.type; lastStop = r.stopReason || null; }
     const content = r.message && Array.isArray(r.message.content) ? r.message.content : [];
+    if (r.type === 'user' && !r.isMeta && !content.some(c => c?.type === 'tool_result')) turnStart = ts;
     for (const c of content) {
       if (!c || typeof c !== 'object') continue;
       if (c.type === 'tool_use') {
@@ -146,6 +148,7 @@ export function readSession(file, now = Date.now()) {
     lastTool: lastToolName,
     agents: activeAgents.map(a => ({ type: a.type, description: short(a.description, 60), since: new Date(a.since).toISOString() })),
     skills: skills.slice(-5).reverse().map(s => ({ name: s.name, at: new Date(s.at).toISOString() })),
+    turnSkills: [...new Set(skills.filter(s => s.at >= turnStart).reverse().map(s => s.name))],   // skills used in this turn, newest first
   };
 }
 

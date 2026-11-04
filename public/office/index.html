@@ -314,7 +314,7 @@ const SLOTS = [{ x: 118, y: 262 }, { x: 236, y: 256 }, { x: 176, y: 226 }, { x: 
 // there (floor = the diamond around 176,240), so nobody ever stands on top of someone else.
 function freeSpot(roomName) {
   const taken = [...workers.values()].filter(w => w.room === roomName && w.spot).map(w => w.spot);
-  const free = SLOTS.find(s => !taken.some(t => t.x === s.x && t.y === s.y));
+  const free = SLOTS.find(s => !taken.some(t => Math.abs(t.x - s.x) < 40 && Math.abs(t.y - s.y) < 30));   // near a dragged one counts as taken too
   if (free) return free;
   let best = null, bestD = -1;
   for (let y = 186; y <= 296; y += 6) for (let x = 70; x <= 282; x += 6) {
@@ -413,6 +413,75 @@ function getChar(id) {
   return charReady.get(id) || charReady.get(FALLBACK);
 }
 await getChar(FALLBACK) || await chars.get(FALLBACK);
+
+// ───────── skill creatures (the author, 2026-11-04): a skill used in a chat's current turn shows as a little creature with its agent ─────────
+// floor pets sit behind the chair, flyers hover beside the head; at most one of each per agent, newest skill first; they fade
+// away when the chat stops working. sprites/creatures/index.json = skill → creature (the "default" one plays every other skill).
+function bodyOf(im) {   // the creature's resting body inside its frame box (frame 0's opaque pixels): a long tongue, open wings or a light beam widen the box, the body stays put
+  const cv = document.createElement('canvas'); cv.width = im.width; cv.height = im.height;
+  const g = cv.getContext('2d'); g.drawImage(im, 0, 0); const d = g.getImageData(0, 0, im.width, im.height).data;
+  let x0 = im.width, y0 = im.height, x1 = 0, y1 = 0;
+  for (let y = 0; y < im.height; y++) for (let x = 0; x < im.width; x++) if (d[(y * im.width + x) * 4 + 3]) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + 1); y1 = Math.max(y1, y + 1); }
+  return { x0, y0, x1, y1 };
+}
+const AUTO_PETS = true;   // true in the public copy: every skill gets a creature from the whole cast, picked by its name, so anyone's skills have pets
+const CREATURES = { bySkill: {}, fallback: null, all: [] };
+try {
+  for (const c of await (await fetch(`/sprites/creatures/index.json?v=${V}`, { cache: 'no-store' })).json()) {
+    if (!AUTO_PETS && !c.skill && !c.default) continue;   // not playing a skill yet
+    const cr ={ ...c, frames: (await Promise.all(Array.from({ length: Math.max(...c.seq) + 1 }, (_, i) => loadImg(`/sprites/creatures/${c.id}/idle/c${i}.png`)))).filter(Boolean) };
+    if (!cr.frames.length) continue;
+    cr.body = bodyOf(cr.frames[0]);
+    CREATURES.all.push(cr);
+    if (c.default) CREATURES.fallback = cr; else if (c.skill) CREATURES.bySkill[c.skill] = cr;
+  }
+} catch {}
+const pickByName = (name, list) => { let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return list[h % list.length]; };
+const creatureFor = skill => { const name = String(skill).split(':').pop();
+  return CREATURES.bySkill[skill] || CREATURES.bySkill[name] || (AUTO_PETS && CREATURES.all.length ? pickByName(name, CREATURES.all) : CREATURES.fallback); };
+const creatureFrame = (c, now) => c.frames[c.seq[Math.floor(now / 1000 * c.fps) % c.seq.length]] || c.frames[0];
+function updatePets(w, dt) {   // which creatures this worker should have now, each fading in or out over half a second
+  const want = new Set();
+  if (w.kind !== 'agent' && w.liveState === 'working' && w.state === 'typing') {
+    const cs = (w.turnSkills || []).map(sk => ({ c: creatureFor(sk), sk })).filter(p => p.c);   // newest skill first
+    for (const where of ['floor', 'air']) { const p = cs.find(p => p.c.where === where); if (p) { want.add(p.c); p.c.lastSkill = p.sk; } }
+  }
+  w.pets = w.pets || new Map();
+  for (const c of want) { if (!w.pets.has(c.id)) w.pets.set(c.id, { c, a: 0 }); w.pets.get(c.id).skill = c.lastSkill; }
+  for (const [id, p] of w.pets) { p.a += (want.has(p.c) ? 1 : -1) * dt / 0.5; if (p.a <= 0 && !want.has(p.c)) w.pets.delete(id); else p.a = Math.min(1, Math.max(0, p.a)); }
+}
+const AIR_Y = 8;   // a flyer's body top, in sprite rows from the agent's frame top (the head starts at 12): high enough that the floor pet's tag fits under it
+function petAt(c, x, y, z, s, now, bob = true) {   // where a creature's frame box goes: floor pets behind the chair, flyers beside the head
+  return c.where === 'floor' ? { px: Math.round(x + (13 - c.body.x1) * z), py: Math.round(s.y + (1 - c.body.y1) * z) }
+    : { px: Math.round(x + (12 - c.body.x1) * z), py: Math.round(y + (AIR_Y - c.body.y0 + (bob ? Math.round(Math.sin(now / 1000 * Math.PI * 1.25 + c.id.length) * 1.5) : 0)) * z) };
+}
+function drawPets(w, where, x, y, z, s, now) {   // x, y = the agent's frame top-left on screen, s = its feet
+  if (!w.pets?.size) return;
+  for (const { c, a } of w.pets.values()) {
+    if (c.where !== where) continue;
+    const f = creatureFrame(c, now), { px, py } = petAt(c, x, y, z, s, now);
+    ctx.globalAlpha = a; ctx.imageSmoothingEnabled = false; ctx.drawImage(f, px, py, f.width * z, f.height * z);
+  }
+  ctx.globalAlpha = 1;
+}
+const TAG_MIN_ZOOM = 1.6;
+function petTag(c, skill, x, y, z, s, now) {   // the skill's name in a small pixel bubble above its creature, right edges lined up, tail pointing down at it
+  const fs = Math.round(FS() * 0.85), u = 2, pad = 6, th = fs + 10, text = '/' + String(skill).split(':').pop();
+  const { px, py } = petAt(c, x, y, z, s, now, false);   // the tag does not bob with a flyer
+  ctx.font = `${FB()} ${fs}px ${PF()}`; const tw = Math.round(ctx.measureText(text).width) + pad * 2;
+  const right = px + c.body.x1 * z, tx = right - tw, ty = py + c.body.y0 * z - 3 * u - 2 - th;
+  return { text, fs, pad, u, tx, ty, tw, th, tail: Math.max(tx + 4 * u, Math.min(right - 4 * u, px + (c.body.x0 + c.body.x1) / 2 * z)) };
+}
+function drawPetTags(w, x, y, z, s, now) {   // hidden with the info, and when zoomed out
+  if (!w.pets?.size || z < TAG_MIN_ZOOM) return;
+  for (const { c, a, skill } of w.pets.values()) {
+    if (!skill) continue;
+    const t = petTag(c, skill, x, y, z, s, now);
+    ctx.globalAlpha = a; pixelBox(t.tx, t.ty, t.tw, t.th, t.u, t.tail);
+    ctx.font = `${FB()} ${t.fs}px ${PF()}`; ctx.fillStyle = '#4b2fd6'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t.text, t.tx + t.pad, t.ty + t.th / 2 + 1);
+  }
+  ctx.globalAlpha = 1;
+}
 
 // ───────── rooms: one picture per project (rooms/index.json), Thai room as the fallback ─────────
 let ROOM_FILES = {};
@@ -582,7 +651,20 @@ function makeWorker(id, roomName, label) {
   return { id, charId: 'claude', room: roomName, label, pos: { x: r.x + SPOT.door.x, y: r.y + SPOT.door.y }, path: [], state: 'walking', since: performance.now(), dir: 'down', walkT: 0, doing: '', sub: '', agents: [], next: null };
 }
 function toRoom(w, spotKey, dx = 0) { const r = rooms.get(w.room); return { x: r.x + SPOT[spotKey].x + dx, y: r.y + SPOT[spotKey].y }; }
-function enter(w) { w.spot = freeSpot(w.room); const p = slotPos(w.room, w.spot); w.pos = toRoom(w, 'door'); w.path = [p]; w.state = 'walking'; w.walkT = 0; }   // in through the front corner, straight to the spot
+// ───────── drag a character around its own room (the author, 2026-11-04: when they hide each other) ─────────
+// The spot is remembered in this browser per chat / per agent call, so a reload keeps the arrangement.
+const SPOTS_KEY = 'bk-spots-' + (FRESH ? 'preview' : 'main');
+let SAVED_SPOTS = (() => { try { return JSON.parse(localStorage.getItem(SPOTS_KEY) || '{}'); } catch { return {}; } })();
+function saveSpot(w) {
+  SAVED_SPOTS[w.id] = { room: w.room, x: Math.round(w.spot.x), y: Math.round(w.spot.y), t: Date.now() };
+  const ids = Object.keys(SAVED_SPOTS);   // chats and agent calls come and go: keep the newest 300
+  if (ids.length > 300) ids.sort((a, b) => SAVED_SPOTS[a].t - SAVED_SPOTS[b].t).slice(0, ids.length - 300).forEach(id => delete SAVED_SPOTS[id]);
+  try { localStorage.setItem(SPOTS_KEY, JSON.stringify(SAVED_SPOTS)); } catch {}
+}
+const FLOOR = { cx: 176, cy: 238, rx: 136, ry: 66 };   // where dragged feet may go (room pixels): the open floor, a bit roomier than the automatic spots
+function onFloor(p) { const u = (p.x - FLOOR.cx) / FLOOR.rx, v = (p.y - FLOOR.cy) / FLOOR.ry, k = Math.abs(u) + Math.abs(v); return k <= 1 ? p : { x: FLOOR.cx + u / k * FLOOR.rx, y: FLOOR.cy + v / k * FLOOR.ry }; }
+function toSpot(roomName, pos) { const r = rooms.get(roomName); return { x: (pos.x - r.x) / room.width * 352, y: (pos.y - r.y) / room.height * 319 }; }
+function enter(w) { const sv = SAVED_SPOTS[w.id]; w.spot = sv && sv.room === w.room ? { x: sv.x, y: sv.y } : freeSpot(w.room); const p = slotPos(w.room, w.spot); w.pos = toRoom(w, 'door'); w.path = [p]; w.state = 'walking'; w.walkT = 0; }   // in through the front corner, straight to the spot
 
 // ───────── live mode: the picture comes from the chat logs ─────────
 const stateMap = { working: 'typing', waiting: 'waiting', asleep: 'sleep' };
@@ -621,7 +703,7 @@ function applyLive(d) {
     else if (w.room !== roomName) { w.room = roomName; w.pending = target; enter(w); }                                 // the chat moved to another project: walks into its new room
     else if (w.state !== 'walking' && w.state !== target) { w.state = target; w.since = performance.now(); }      // state changes in place
     else if (w.state === 'walking') w.pending = target;
-    w.startedAt = null; w.label = 'Claude'; w.sub = s.title; w.doing = s.doing; w.next = s.next; w.agents = []; w.steps = s.steps; w.liveState = s.state;
+    w.startedAt = null; w.label = 'Claude'; w.sub = s.title; w.doing = s.doing; w.next = s.next; w.agents = []; w.steps = s.steps; w.liveState = s.state; w.turnSkills = s.turnSkills || [];
     seen.add(s.id);
     // the agents this chat called: each one is a character of its own, beside the worker
     (s.agents || []).forEach((a, j) => {
@@ -1301,11 +1383,14 @@ function drawWorker(w, now) {
   ctx.globalAlpha = w.state === 'leaving' ? Math.max(0, 1 - (now - w.since) / 1500) : 1; const wd = img.width * z, ht = img.height * z;
   const x = Math.round(s.x - wd / 2), y = Math.round(s.y - ht + FOOT_PAD * z);
   ctx.imageSmoothingEnabled = false;
+  const fade = ctx.globalAlpha; drawPets(w, 'floor', x, y, z, s, now); ctx.globalAlpha = fade;
   if (flip) { ctx.save(); ctx.translate(x + wd, y); ctx.scale(-1, 1); ctx.drawImage(img, 0, 0, wd, ht); ctx.restore(); } else ctx.drawImage(img, x, y, wd, ht);
+  drawPets(w, 'air', x, y, z, s, now); ctx.globalAlpha = fade;
   if (hideInfo) {                       // info hidden: just the character (sleepers keep their zzz over the head)
     if (w.state === 'sleep') drawZzz(Math.round(s.x + wd * 0.15), y + 10 * z, now, Math.max(0.5, Math.min(1.6, z * 0.6)));
     ctx.globalAlpha = 1; w.hit = [{ x, y, w: wd, h: ht }]; w.infoHit = w.bubble = null; return;
   }
+  drawPetTags(w, x, y, z, s, now); ctx.globalAlpha = fade;
   // bubble: who · chat · doing now. Fixed size on screen (does not grow with zoom), left aligned.
   const u = 2, fs = FS(), fb = FB();
   const lines = [[w.label, `${fb} ${Math.round(fs * 1.1)}px`, '#1c1d22'], [w.sub, `400 ${fs}px`, '#5d6170'], [w.doing, `400 ${fs}px`, '#4b2fd6']];
@@ -1317,7 +1402,10 @@ function drawWorker(w, now) {
   const pl = 9, plGap = Math.round(fs * 1.2);   // the + in the bubble's top right corner opens the card (the author, 2026-11-02: the card only opens from here)
   let bw = 0; lines.forEach((l, i) => { ctx.font = `${l[1]} ${PF()}`; l[0] = ellipsis(l[0], maxText); bw = Math.max(bw, ctx.measureText(l[0]).width + (i ? 0 : sqGap + sq + plGap + pl)); });
   const pad = 10, lh = Math.round(fs * 1.3), bh = lh * lines.length + 14; bw = bw + pad * 2;   // same margin above and below
-  const top = y + 12 * z; const bx = Math.round(s.x - bw / 2), by = Math.round(top - bh - 14);
+  // a flyer's skill tag sits at head height: the bubble rises out of its way (smoothly, with the flyer's fade)
+  const airPet = z >= TAG_MIN_ZOOM ? [...(w.pets?.values() || [])].find(p => p.c.where === 'air' && p.skill) : null;
+  const lift = airPet ? Math.max(0, (y + 12 * z - 8) - (petTag(airPet.c, airPet.skill, x, y, z, s, now).ty - 4)) * airPet.a : 0;
+  const top = y + 12 * z; const bx = Math.round(s.x - bw / 2), by = Math.round(top - bh - 14 - lift);
   pixelBox(bx, by, bw, bh, u, s.x);
   const base0 = by + 7 + Math.round(lh * 0.8);                                    // baseline of line 1
   lines.forEach(([t, f, col], i) => { ctx.font = `${f} ${PF()}`; ctx.fillStyle = col; ctx.fillText(t, bx + pad, base0 + lh * i); });
@@ -1335,10 +1423,12 @@ function drawWorker(w, now) {
 
 // ───────── update ─────────
 let last = performance.now();
+let drawOrder = [];   // workers in the order they were drawn (last = on top); clicks and drags use it
 function tick(now) {
   const dt = Math.min(0.5, (now - last) / 1000); last = now;   // real time, so slow or background tabs keep pace
   easeZoom(dt);
   for (const w of workers.values()) {
+    updatePets(w, dt);
     if (w.state === 'leaving') { if (now - w.since > 1500) { workers.delete(w.id); renderSide(); } continue; }
     if (w.state === 'walking') {
       if (w.path.length) {
@@ -1354,7 +1444,7 @@ function tick(now) {
   else if (flyTo) stepFly(now);
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
   const shown = drawRooms(); drawRoomNames(shown);
-  [...workers.values()].sort((a, b) => (a.id === topId) - (b.id === topId) || a.pos.y - b.pos.y).forEach(w => drawWorker(w, now));   // clicked one last = on top
+  drawOrder = [...workers.values()].sort((a, b) => (a.id === topId) - (b.id === topId) || a.pos.y - b.pos.y); drawOrder.forEach(w => drawWorker(w, now));   // clicked one last = on top
   placeCard();
   requestAnimationFrame(tick);
 }
@@ -1391,18 +1481,50 @@ pollLive().then(fitAll); setInterval(pollLive, 3000);
 pollHistory(); setInterval(pollHistory, 60000);
 canvas.addEventListener('wheel', e => { e.preventDefault(); stopFly(); setZoom(zoomT * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025)), { x: e.clientX, y: e.clientY }); }, { passive: false });
 let topId = null;
-function hitInfo(sx, sy) { for (const w of [...workers.values()].reverse()) { const r = w.infoHit; if (r && sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) return w; } return null; }
-canvas.addEventListener('mousemove', e => { if (!e.buttons) canvas.style.cursor = hitInfo(e.clientX, e.clientY) ? 'pointer' : ''; });
-function hitWorker(sx, sy) { for (const w of [...workers.values()].reverse()) for (const r of w.hit || []) if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) return w; return null; }
+function hitInfo(sx, sy) { for (const w of [...drawOrder].reverse()) { const r = w.infoHit; if (r && sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) return w; } return null; }
+canvas.addEventListener('mousemove', e => { if (!e.buttons) canvas.style.cursor = hitInfo(e.clientX, e.clientY) ? 'pointer' : hitWorker(e.clientX, e.clientY) ? 'move' : ''; });
+function hitWorker(sx, sy) { for (const w of [...drawOrder].reverse()) for (const r of w.hit || []) if (sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h) return w; return null; }
 let drag = null; const touches = new Map(); let pinch = null; let downAt = null;
-canvas.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; try { canvas.setPointerCapture(e.pointerId); } catch {} touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); if (touches.size === 1) { drag = { x: e.clientX, y: e.clientY }; canvas.classList.add('dragging'); } else if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoomT }; drag = null; } });
+// agentDrag = a character being moved: a mouse grabs it at once, a finger after holding still for 350 ms (a quick swipe still pans the map)
+let agentDrag = null;
+function dropAgent() {   // a drop keeps the whole room's arrangement, so after a reload nobody lands on the one that was moved
+  if (!agentDrag) return; clearTimeout(agentDrag.timer);
+  if (agentDrag.moved) for (const o of workers.values()) if (o.room === agentDrag.w.room && o.spot && o.state !== 'leaving') saveSpot(o);
+  agentDrag = null;
+}
+canvas.addEventListener('pointerdown', e => { downAt = { x: e.clientX, y: e.clientY }; try { canvas.setPointerCapture(e.pointerId); } catch {} touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (touches.size === 1) {
+    drag = { x: e.clientX, y: e.clientY }; canvas.classList.add('dragging');
+    const w = !hitInfo(e.clientX, e.clientY) && hitWorker(e.clientX, e.clientY);
+    if (w && w.state !== 'leaving') {
+      agentDrag = { w, pid: e.pointerId, ready: e.pointerType !== 'touch' };
+      if (agentDrag.ready) drag = null;
+      else agentDrag.timer = setTimeout(() => { if (agentDrag?.w === w && touches.size === 1) { agentDrag.ready = true; drag = null; topId = w.id; navigator.vibrate?.(12); } }, 350);
+    }
+  } else if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoomT }; drag = null; dropAgent(); } });
 canvas.addEventListener('pointermove', e => {
   if (!touches.has(e.pointerId)) return; touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (agentDrag && agentDrag.pid === e.pointerId) {
+    const far = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+    if (!agentDrag.ready) { if (far > 8) { clearTimeout(agentDrag.timer); agentDrag = null; } }   // a finger that moves before the hold = panning the map
+    else {
+      const w = agentDrag.w;
+      if (!workers.has(w.id) || !rooms.has(w.room)) { agentDrag = null; return; }
+      if (!agentDrag.moved && far < 4) return;   // a click, not a drag
+      const p = toWorld({ x: e.clientX, y: e.clientY });
+      if (!agentDrag.off) agentDrag.off = { x: p.x - w.pos.x, y: p.y - w.pos.y };
+      w.spot = onFloor(toSpot(w.room, { x: p.x - agentDrag.off.x, y: p.y - agentDrag.off.y }));
+      w.pos = slotPos(w.room, w.spot); w.path = [];   // one that was still walking in just stops here
+      agentDrag.moved = true; followId = null; topId = w.id;
+      return;
+    }
+  }
   if (pinch && touches.size === 2) { const [a, b] = [...touches.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); setZoom(pinch.z * d / pinch.d, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }); return; }
   if (drag) { followId = null; stopFly(); roomPick.value = ''; cam.x -= (e.clientX - drag.x) / zoom(); cam.y -= (e.clientY - drag.y) / zoom(); drag = { x: e.clientX, y: e.clientY }; }
 });
 let lastTap = null;   // touch: two taps within 300 ms = a double click
-const endPointer = e => { if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 4) {
+const endPointer = e => { if (agentDrag && agentDrag.pid === e.pointerId) { if (agentDrag.ready && e.pointerType === 'touch') lastTap = null; const moved = agentDrag.moved; dropAgent(); if (moved) { downAt = null; touches.delete(e.pointerId); if (!touches.size) { drag = null; canvas.classList.remove('dragging'); } return; } }
+  if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 4) {
   if (e.pointerType === 'touch' && e.type === 'pointerup') { const t = performance.now(); if (lastTap && t - lastTap.t < 300 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) { lastTap = null; downAt = null; touches.delete(e.pointerId); if (!touches.size) { drag = null; canvas.classList.remove('dragging'); } roomZoomToggle(e.clientX, e.clientY); return; } lastTap = { t, x: e.clientX, y: e.clientY }; } const iw = hitInfo(e.clientX, e.clientY), w = iw || hitWorker(e.clientX, e.clientY); topId = w ? w.id : topId; if (iw) openCard(iw.id); else if (!w) openCard(null); } downAt = null; touches.delete(e.pointerId); if (touches.size < 2) pinch = null; if (!touches.size) { drag = null; canvas.classList.remove('dragging'); } };
 canvas.addEventListener('pointerup', endPointer); canvas.addEventListener('pointercancel', endPointer);
 // double click a room = zoom into it; the next double click = back to where you were
@@ -1442,7 +1564,7 @@ window.addEventListener('keydown', e => {
 });
 setView(location.hash.slice(1));      // open on the tab in the address (#agents / #skills)
 openWelcome(false);                   // the new-user preview opens on the welcome card, once
-window.officeDebug = () => [...workers.values()].map(w => ({ id: w.id, room: w.room, state: w.state, spot: w.spot, pos: [Math.round(w.pos.x), Math.round(w.pos.y)], path: w.path.map(p => [Math.round(p.x), Math.round(p.y)]) }));
+window.officeDebug = () => [...workers.values()].map(w => ({ id: w.id, room: w.room, state: w.state, spot: w.spot, pos: [Math.round(w.pos.x), Math.round(w.pos.y)], path: w.path.map(p => [Math.round(p.x), Math.round(p.y)]), hit: (w.hit || []).map(r => [r.x, r.y, r.w, r.h].map(Math.round)) }));   // hit = screen boxes (bubble, body) for tests
 </script>
 </body>
 </html>
