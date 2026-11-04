@@ -119,6 +119,8 @@
   .skill .sx { font-size: 13px; }
   .skill .su { font-size: 12px; color: var(--muted); margin-top: auto; }
   .skill .su b { color: #16a34a; }
+  .skill.haspet { position: relative; padding-right: 84px; min-height: 92px; }
+  .skill .spet { position: absolute; right: 10px; top: 10px; width: 64px; height: 64px; image-rendering: pixelated; }   /* the skill's own creature, idling (the author, 2026-11-04) */
   .skill.unused { box-shadow: none; border-color: #b9b4cf; }
   .skill.unused .sn { color: #5d6170; }
   /* skill group titles: bigger, one colour per group */
@@ -297,7 +299,7 @@
   <button class="office-only" id="hideInfo" title="Show the bubbles above the agents">Show info</button>
   </div>
   <button id="freshBtn" title="See BeeKeeper the way someone who just installed it sees it">Try as new user</button>
-  <button class="usage px" id="usage" hidden aria-expanded="false" title="Claude plan usage"></button>
+  <button class="usage px office-only" id="usage" hidden aria-expanded="false" title="Claude plan usage"></button>
 </div>
 <div class="side" id="side"></div>
 <div class="legend" id="legend"></div>
@@ -707,7 +709,7 @@ function renderUsage(u) {
   if (!ws.length) { placeSide(); return; }
   const lvl = p => p >= U_HOT ? 'hot' : p >= U_WARN ? 'warn' : '';
   const worst = Math.max(...ws.map(w => w.pct));
-  el.className = 'usage px ' + lvl(worst);
+  el.className = 'usage px office-only ' + lvl(worst);   // Hive only (the author, 2026-11-04)
   el.setAttribute('aria-expanded', usageOpen);
   el.title = usageOpen ? 'Hide the details' : 'Show the reset times';
   const cell = w => `<span class="uc ${lvl(w.pct)}"><span>${esc(w.label)}</span><span class="ub"><i style="width:${w.pct}%"></i></span><b>${w.pct}%</b>${usageOpen && w.resetsAt ? `<small>${untilText(w.resetsAt)}</small>` : ''}</span>`;
@@ -955,9 +957,31 @@ function renderSkillsView() {
     <div class="jump">${groups.filter(g => byGroup[g.id].length).map(g => `<a href="#skills" data-g="${g.id}">${esc(g.name)} · ${byGroup[g.id].length}</a>`).join('')}</div>` +
     groups.filter(g => byGroup[g.id].length).map(g => `<h2 id="g-${g.id}" class="gc-${g.id}">${esc(g.name)}</h2><p class="gblurb">${esc(g.blurb)}</p><div class="skills gc-${g.id}">${byGroup[g.id].sort((a, b) => (used[b.id]?.total || 0) - (used[a.id]?.total || 0) || a.id.localeCompare(b.id)).map(sk => {
       const u = used[sk.id], text = SKILL_GROUPS.skills[sk.id]?.text || String(sk.description || '').split(/(?<=\.)\s/)[0];
-      return `<div class="skill px${u ? '' : ' unused'}" title="${esc(sk.description || '')}"><div class="sn">/${esc(sk.id)}</div><div class="sx">${esc(text)}</div>
+      const pet = petOfSkill(sk.id);
+      return `<div class="skill px${u ? '' : ' unused'}${pet ? ' haspet' : ''}" title="${esc(sk.description || '')}">${pet ? `<canvas class="spet" width="64" height="64" data-pet="${esc(pet.id)}" aria-label="${esc(pet.name)}"></canvas>` : ''}<div class="sn">/${esc(sk.id)}</div><div class="sx">${esc(text)}</div>
         <div class="su">${u ? (ago(u.last) === 'today' ? '<b>Used today</b> · ' : '') + `${u.total} ${u.total === 1 ? 'use' : 'uses'} · last ${ago(u.last)}` : 'Not used yet'}</div></div>`; }).join('')}</div>`).join('');
   el.querySelectorAll('.jump a').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById('g-' + a.dataset.g)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+  startSkillPets();
+}
+// a skill's own creature (the "any other skill" drone stays in the Hive only, so the list is not 70 drones)
+const petOfSkill = id => { const name = String(id).split(':').pop(); return CREATURES.bySkill[id] || CREATURES.bySkill[name] || (AUTO_PETS && CREATURES.all.length ? pickByName(name, CREATURES.all) : null); };
+let skillPetsOn = false;
+function startSkillPets() {
+  if (skillPetsOn) return; skillPetsOn = true;
+  const tick = now => {
+    const cvs = view === 'skills' ? document.querySelectorAll('#viewSkills canvas.spet') : [];
+    if (!cvs.length) { skillPetsOn = false; return; }
+    for (const cv of cvs) {
+      const c = CREATURES.all.find(x => x.id === cv.dataset.pet); if (!c) continue;
+      const im = creatureFrame(c, now), b = c.body, g = cv.getContext('2d');
+      const k = Math.max(2, Math.min(4, Math.floor(44 / Math.max(b.x1 - b.x0, b.y1 - b.y0))));   // whole-pixel scale from the resting body (a tongue or wing may run past the edge), body centred
+      g.imageSmoothingEnabled = false; g.clearRect(0, 0, 64, 64);
+      const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+      g.drawImage(im, Math.round(32 - cx * k), Math.round(32 - cy * k), im.width * k, im.height * k);
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
 }
 // ───────── Studio: redraw a room in a new theme (local only: the tab shows when /api/studio answers) ─────────
 let STUDIO = null, studioOpen = null, studioSig = '', studioBust = Date.now();   // studioBust changes only when a room is kept, so the grid never reloads its pictures for nothing
