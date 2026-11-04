@@ -54,7 +54,9 @@ pip3 install numpy pillow
 
 BeeKeeper reads the chat logs and agent files Claude Code already keeps in `~/.claude` and in your project folders. It only reads them. Nothing is uploaded anywhere.
 
-The only thing that leaves your computer is a room drawing: when you press Generate in Studio, your description (and the reference pictures you add) go to Google's image model.
+The usage widget (5-hour, weekly and per-model limits) reads your terminal Claude Code login and asks Anthropic for your usage once a minute. The login is only read, never changed. If it has expired, sign in again with `claude auth login` (or start BeeKeeper with `BK_RENEW=1` to let it make one tiny Claude call every 6 hours so Claude Code renews the login itself).
+
+Apart from that, the only thing that leaves your computer is a room drawing: when you press Generate in Studio, your description (and the reference pictures you add) go to Google's image model.
 
 ## Rooms and characters
 

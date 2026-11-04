@@ -6,6 +6,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { readUsage } from './usage.mjs';
 
 const CLAUDE_DIR = path.join(os.homedir(), '.claude', 'projects');
 const WORKSPACE = /(?!)/;   // never matches: a project is named after its folder
@@ -49,6 +50,13 @@ function plainTool(name) {
   if (/mark_chapter|show_pane/.test(name)) return 'Organising the chat';
   return 'Using ' + name.replace(/^mcp__[^_]+__/, '').replace(/_/g, ' ');
 }
+// context window per model: every current model has 1M; Haiku 4.5 and the models before Opus/Sonnet 4.6 have 200K
+function contextWindow(model) {
+  const m = String(model || '');
+  if (/\[1m\]/i.test(m)) return 1e6;
+  if (/haiku-4|haiku-3|-3-|opus-4-[015]\b|opus-4-5|sonnet-4-[05]\b|sonnet-4-5|opus-4-2|sonnet-4-2/.test(m)) return 2e5;
+  return 1e6;
+}
 const firstLine = s => String(s || '').split('\n').find(l => l.trim()) || '';
 const short = (s, n = 90) => { s = firstLine(s).trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 
@@ -62,6 +70,7 @@ export function readSession(file, now = Date.now()) {
   const skills = [];
   let turnStart = 0;                   // when the current turn began (the last message that is not a tool result): skill creatures stay for the turn
   let sidechain = 0, main = 0;
+  let ctxTokens = null, ctxModel = null;   // how full the chat's context is: the token count of its latest reply
 
   for (const r of recs) {
     if (r.cwd) cwd = r.cwd;   // the LAST folder: a session moved to another project is shown there
@@ -79,6 +88,8 @@ export function readSession(file, now = Date.now()) {
     const ts = r.timestamp ? Date.parse(r.timestamp) : 0;
     if (ts > lastActivity) { lastActivity = ts; lastRole = r.type; lastStop = r.stopReason || null; }
     const content = r.message && Array.isArray(r.message.content) ? r.message.content : [];
+    const u = r.type === 'assistant' && r.message?.usage;
+    if (u && r.message.model !== '<synthetic>') { ctxTokens = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.output_tokens || 0); ctxModel = r.message.model || ctxModel; }
     if (r.type === 'user' && !r.isMeta && !content.some(c => c?.type === 'tool_result')) turnStart = ts;
     for (const c of content) {
       if (!c || typeof c !== 'object') continue;
@@ -148,6 +159,7 @@ export function readSession(file, now = Date.now()) {
     lastTool: lastToolName,
     agents: activeAgents.map(a => ({ type: a.type, description: short(a.description, 60), since: new Date(a.since).toISOString() })),
     skills: skills.slice(-5).reverse().map(s => ({ name: s.name, at: new Date(s.at).toISOString() })),
+    context: ctxTokens == null ? null : { tokens: ctxTokens, window: contextWindow(ctxModel), pct: Math.min(100, Math.round(ctxTokens / contextWindow(ctxModel) * 100)) },
     turnSkills: [...new Set(skills.filter(s => s.at >= turnStart).reverse().map(s => s.name))],   // skills used in this turn, newest first
   };
 }
@@ -234,7 +246,7 @@ export function collect(now = Date.now()) {
   sessions.sort((a, b) => a.idleMs - b.idleMs);
   const agents = [];
   for (const s of sessions) for (const a of s.agents) agents.push({ ...a, session: s.id, project: s.project, chat: s.title });
-  return { generatedAt: new Date(now).toISOString(), machine: os.hostname().replace(/\.local$/, ''), sessions, agents, projects: listProjects() };
+  return { generatedAt: new Date(now).toISOString(), machine: os.hostname().replace(/\.local$/, ''), sessions, agents, projects: listProjects(), usage: readUsage(now) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname.replace(/%20/g, ' '))) {
@@ -246,6 +258,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     console.log(`          doing: ${s.doing}`);
     if (s.next) console.log(`          next:  ${s.next}`);
     if (s.steps) console.log(`          steps: ${s.steps.done}/${s.steps.total}`);
+    if (s.context) console.log(`          context: ${s.context.pct}% (${Math.round(s.context.tokens / 1000)}k of ${s.context.window / 1000}k)`);
     for (const a of s.agents) console.log(`          agent: ${a.type} — ${a.description}`);
     if (s.skills.length) console.log(`          skills: ${s.skills.map(k => '/' + k.name).join(' ')}`);
     console.log();
