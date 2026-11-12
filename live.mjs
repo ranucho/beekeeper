@@ -1,4 +1,4 @@
-// Live picture of every Claude Code chat on this machine, read from the chat logs that
+// Live picture of every Claude Code chat (and Codex chat, see codex.mjs) on this machine, read from the chat logs that
 // Claude Code already writes (~/.claude/projects/<project>/<session>.jsonl).
 // Nothing is invented: "doing" is the chat's own current step, or its last tool action.
 //   import { collect } from './live.mjs'   →  collect() → { generatedAt, machine, sessions, agents }
@@ -7,6 +7,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { readUsage } from './usage.mjs';
+import { codexSessions, codexRooms } from './codex.mjs';
 
 const CLAUDE_DIR = path.join(os.homedir(), '.claude', 'projects');
 const WORKSPACE = /(?!)/;   // never matches: a project is named after its folder
@@ -35,6 +36,15 @@ function projectName(cwd) {
   if (m) return m.split('/')[0] || path.basename(cwd);
   for (let d = cwd; d !== path.dirname(d); d = path.dirname(d)) if (drawnRooms().has(path.basename(d))) return path.basename(d);   // a sub-folder of a project that has a room goes to that room
   return path.basename(cwd);
+}
+
+// The room a folder belongs to when it is inside a numbered workspace project or a room with art; else null (Codex chats use this)
+function roomOfFolder(cwd) {
+  if (!cwd) return null;
+  const top = (cwd.split(WORKSPACE)[1] || '').split('/')[0];
+  if (/^\d\d /.test(top)) return top;
+  for (let d = cwd; d !== path.dirname(d); d = path.dirname(d)) if (drawnRooms().has(path.basename(d))) return path.basename(d);
+  return null;
 }
 
 // tool names in plain words, for when a chat has no step list
@@ -143,8 +153,8 @@ export function readSession(file, now = Date.now()) {
   const nextStep = plan?.find(p => p.status === 'pending');
   const done = plan ? plan.filter(p => p.status === 'completed').length : 0;
   const allDone = plan && !inProg && !nextStep;
-  const doing = state === 'waiting' ? "Waiting for your reply"
-              : state === 'asleep' ? `Idle for ${Math.round(idle / 60000)} min`
+  const doing = state === 'waiting' ? 'Ready'          // the author, 2026-11-12: not "waiting for you", it rarely needs him; the page adds the sleep countdown
+              : state === 'asleep' ? 'Asleep'                                // the page adds the 2 h countdown to leaving
               : short(inProg?.content || (allDone ? 'Wrapping up' : null) || lastToolDesc || plainTool(lastToolName));
   const activeAgents = [...agents.values()].filter(a => !a.until && now - a.since < AGENT_MAX);
 
@@ -206,7 +216,7 @@ function drawnRooms() {
 export function listProjects() {
   const out = new Map();
   let dirs = []; try { dirs = fs.readdirSync(WORKSPACE_DIR).filter(d => /^\d\d /.test(d) && fs.statSync(path.join(WORKSPACE_DIR, d)).isDirectory()); } catch {}
-  for (const d of dirs) out.set(d, { name: d, path: path.join(WORKSPACE_DIR, d), lastActivity: null });
+  for (const d of dirs) out.set(d, { name: d, path: path.join(WORKSPACE_DIR, d), lastActivity: null, claude: true });
   const byEnc = new Map([...out.values()].map(p => [enc(p.path), p]));
   if (fs.existsSync(CLAUDE_DIR)) for (const folder of fs.readdirSync(CLAUDE_DIR)) {
     let latest = 0; try { for (const f of fs.readdirSync(path.join(CLAUDE_DIR, folder))) if (f.endsWith('.jsonl')) latest = Math.max(latest, fs.statSync(path.join(CLAUDE_DIR, folder, f)).mtimeMs); } catch { continue; }
@@ -224,9 +234,16 @@ export function listProjects() {
         p = out.get(name) || { name, path: null, lastActivity: null }; out.set(name, p);
       }
     }
+    p.claude = true;
     if (!p.lastActivity || latest > Date.parse(p.lastActivity)) p.lastActivity = new Date(latest).toISOString();
   }
-  return [...out.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(p => ({ name: p.name, lastActivity: p.lastActivity }));
+  try {                                                         // every Codex project is a room too (the author, 2026-11-11)
+    for (const c of codexRooms(roomOfFolder)) {
+      const p = out.get(c.name) || { name: c.name, path: null, lastActivity: null }; out.set(c.name, p); p.codex = true;
+      if (c.lastActivity && (!p.lastActivity || c.lastActivity > p.lastActivity)) p.lastActivity = c.lastActivity;
+    }
+  } catch {}
+  return [...out.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })).map(p => ({ name: p.name, lastActivity: p.lastActivity, tools: [p.claude && 'claude', p.codex && 'codex'].filter(Boolean) }));   // which app works in the room: its icon goes left of the room name
 }
 
 export function collect(now = Date.now()) {
@@ -243,6 +260,7 @@ export function collect(now = Date.now()) {
       }
     }
   }
+  try { sessions.push(...codexSessions(now, { roomOfFolder, asleepAfter: ASLEEP_AFTER, goneAfter: GONE_AFTER, agentMax: AGENT_MAX })); } catch {}   // Codex chats beside the Claude ones
   sessions.sort((a, b) => a.idleMs - b.idleMs);
   const agents = [];
   for (const s of sessions) for (const a of s.agents) agents.push({ ...a, session: s.id, project: s.project, chat: s.title });
@@ -254,12 +272,12 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
   console.log(`${live.machine} · ${live.sessions.length} chats on the floor · ${live.generatedAt}\n`);
   for (const s of live.sessions) {
     const idle = Math.round(s.idleMs / 1000);
-    console.log(`[${s.state.toUpperCase().padEnd(7)}] ${s.project}  ·  "${s.title}"  ·  ${idle < 60 ? idle + ' s' : Math.round(idle / 60) + ' min'} ago`);
+    console.log(`[${s.state.toUpperCase().padEnd(7)}] ${s.tool === 'codex' ? '(Codex) ' : ''}${s.project}  ·  "${s.title}"  ·  ${idle < 60 ? idle + ' s' : Math.round(idle / 60) + ' min'} ago`);
     console.log(`          doing: ${s.doing}`);
     if (s.next) console.log(`          next:  ${s.next}`);
     if (s.steps) console.log(`          steps: ${s.steps.done}/${s.steps.total}`);
     if (s.context) console.log(`          context: ${s.context.pct}% (${Math.round(s.context.tokens / 1000)}k of ${s.context.window / 1000}k)`);
-    for (const a of s.agents) console.log(`          agent: ${a.type} — ${a.description}`);
+    for (const a of s.agents) console.log(`          agent: ${a.type} - ${a.description}`);
     if (s.skills.length) console.log(`          skills: ${s.skills.map(k => '/' + k.name).join(' ')}`);
     console.log();
   }

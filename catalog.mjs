@@ -186,27 +186,41 @@ export function listAgents() {
   return out;
 }
 
+const plainDashes = t => String(t).replace(/\s*[\u2012-\u2015]\s*/g, ' - ');
+
 export function listSkills() {
-  const out = [];
-  const skillsDir = path.join(CLAUDE_DIR, 'skills');
-  if (fs.existsSync(skillsDir)) {
-    for (const slug of fs.readdirSync(skillsDir)) {
-      const skillFile = path.join(skillsDir, slug, 'SKILL.md');
+  // every skill on this machine, Claude's and Codex's in one list (the author, 2026-11-12: "show all skills");
+  // `tools` says which app has it, the Skills tab shows that app's logo
+  const home = os.homedir(), byId = new Map();
+  const sources = [
+    [path.join(CLAUDE_DIR, 'skills'), 'claude'],
+    [path.join(home, '.agents', 'skills'), 'codex'],
+    [path.join(home, '.codex', 'skills'), 'codex'],
+    [path.join(home, '.codex', 'skills', '.system'), 'codex'],
+  ];
+  for (const [dir, tool] of sources) {
+    let slugs = []; try { slugs = fs.readdirSync(dir); } catch { continue; }
+    for (const slug of slugs) {
+      if (slug.startsWith('.')) continue;
+      const skillFile = path.join(dir, slug, 'SKILL.md');
       if (!fs.existsSync(skillFile)) continue;
+      const have = byId.get(slug);
+      if (have) { if (!have.tools.includes(tool)) have.tools.push(tool); continue; }
       try {
-        const txt = fs.readFileSync(skillFile, 'utf-8');
-        const { fm } = parseFrontmatter(txt);
-        out.push({
+        const { fm } = parseFrontmatter(fs.readFileSync(skillFile, 'utf-8'));
+        byId.set(slug, {
           id: slug,
           name: fm.name || slug,
-          description: fm.description || '',
+          description: plainDashes(fm.description || ''),   // Codex's own skill texts use long dashes; the author's rule: never show them
           argumentHint: fm['argument-hint'] || null,
-          invocable: true, // any skill registered in ~/.claude/skills can be /invoked
+          invocable: true,
           source: 'user',
+          tools: [tool],
         });
       } catch {}
     }
   }
+  const out = [...byId.values()];
   out.sort((a, b) => a.name.localeCompare(b.name));
   return out;
 }

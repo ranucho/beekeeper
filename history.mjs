@@ -7,10 +7,12 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import readline from 'readline';
+import { skillsInCall } from './codex.mjs';
 
 const CLAUDE_DIR = path.join(os.homedir(), '.claude', 'projects');
 const ROOT = path.dirname(new URL(import.meta.url).pathname.replace(/%20/g, ' '));
 const CACHE = path.join(ROOT, '.cache', 'history.json');
+const CODEX_SESSIONS = path.join(os.homedir(), '.codex', 'sessions');
 const WEEK = 7 * 24 * 3600 * 1000;
 
 function projectName(cwd) {
@@ -45,6 +47,25 @@ async function scanFile(file) {
   return out;
 }
 
+// one Codex log → the same shape; only skill use is read (Codex sub-agents are not counted as agent calls)
+async function scanCodexFile(file) {
+  const out = { started: null, title: null, project: null, calls: [], failed: [], skills: [] };
+  const rl = readline.createInterface({ input: fs.createReadStream(file, { encoding: 'utf8' }), crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!out.started && line.includes('"timestamp"')) { const m = line.match(/"timestamp":"([^"]+)"/); if (m) out.started = m[1]; }
+    if (!out.project && line.includes('"cwd"')) { const m = line.match(/"cwd":"([^"]+)"/); if (m) out.project = projectName(m[1]); }
+    if (!line.includes('SKILL.md') || !/"type":"(function_call|custom_tool_call)"/.test(line)) continue;
+    let r; try { r = JSON.parse(line); } catch { continue; }
+    const p = r.payload || {}; if (r.type !== 'response_item') continue;
+    for (const name of skillsInCall(typeof p.arguments === 'string' ? p.arguments : typeof p.input === 'string' ? p.input : JSON.stringify(p.arguments ?? p.input ?? ''))) out.skills.push({ name, at: r.timestamp || null });
+  }
+  return out;
+}
+function codexFiles() {
+  const out = []; const walk = d => { let es; try { es = fs.readdirSync(d, { withFileTypes: true }); } catch { return; } for (const e of es) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (e.name.endsWith('.jsonl')) out.push(p); } };
+  walk(CODEX_SESSIONS); return out;
+}
+
 let cache = null;            // file → { size, data }
 let summary = null, building = null;
 function loadCache() { if (cache) return; try { cache = JSON.parse(fs.readFileSync(CACHE, 'utf8')); } catch { cache = {}; } }
@@ -57,11 +78,12 @@ async function refresh() {
     let fl; try { fl = fs.readdirSync(path.join(CLAUDE_DIR, d)); } catch { continue; }
     for (const f of fl) if (f.endsWith('.jsonl')) files.push(path.join(CLAUDE_DIR, d, f));
   }
+  const codex = new Set(codexFiles()); files.push(...codex);
   let changed = false;
   for (const f of files) {
     let st; try { st = fs.statSync(f); } catch { continue; }
     if (cache[f]?.size === st.size) continue;
-    try { cache[f] = { size: st.size, data: await scanFile(f) }; changed = true; } catch {}
+    try { cache[f] = { size: st.size, data: await (codex.has(f) ? scanCodexFile(f) : scanFile(f)) }; changed = true; } catch {}
   }
   for (const f of Object.keys(cache)) if (!files.includes(f)) { delete cache[f]; changed = true; }
   if (changed) saveCache();
@@ -71,7 +93,8 @@ async function refresh() {
 function summarize(now = Date.now()) {
   const agents = {}, chats = {}, skills = {};
   for (const [file, { data }] of Object.entries(cache)) {
-    const id = path.basename(file, '.jsonl');
+    const base = path.basename(file, '.jsonl');
+    const id = base.startsWith('rollout-') ? 'codex-' + base.slice(-36) : base;   // same id as the live Codex chat (codex.mjs)
     const chat = { started: data.started, title: data.title, project: data.project, agents: {}, skills: {} };
     for (const c of data.calls) {
       const a = (agents[c.type] ??= { total: 0, week: 0, projects: {}, jobs: [] });

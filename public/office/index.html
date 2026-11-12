@@ -23,6 +23,11 @@
   button, .chip { height: 36px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
   button:hover { border-color: var(--accent); color: var(--accent); }
   button.on { background: #efeaff; border-color: #c9bcff; color: #4b2fd6; }
+  /* Show: one box of checkboxes in the nav (the author, 2026-11-12), replacing the "Show active only" and "Show info" buttons */
+  .show { height: 36px; display: flex; align-items: center; gap: 14px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); box-shadow: 0 1px 2px rgba(0,0,0,.05); font-weight: 600; white-space: nowrap; }
+  .show span { color: var(--muted); }
+  .show label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .show input { width: 16px; height: 16px; margin: 0; accent-color: #4b2fd6; cursor: pointer; }
   .chip { display: flex; align-items: center; color: var(--muted); font-weight: 500; cursor: default; }
   .side { position: fixed; right: 16px; top: 16px; width: 250px; display: flex; flex-direction: column; gap: 6px; z-index: 2; max-height: calc(100vh - 32px); overflow: auto; }
   .side .head { font-size: 14px; color: var(--muted); font-weight: 600; padding: 4px 4px 0; }
@@ -40,6 +45,7 @@
   .pick .menu i { width: 9px; height: 9px; flex: none; }
   .pick .menu i.live { background: #22c55e; }
   #zoomMenu { min-width: 170px; }
+  .tools .pick:has(#zoomBtn) { display: none !important; }   /* the author, 2026-11-12: no zoom % menu on any screen (wheel, pinch, double-click and Fit all zoom) */
   .pick .menu kbd { margin-left: auto; font: inherit; color: var(--muted); }
   .pick .menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
   .states { display: flex; flex-direction: column; gap: 6px; }
@@ -78,7 +84,7 @@
   .card li .bad { color: #dc2626; font-weight: 600; }
   .card li .ok { color: #16a34a; }
   .tabcol { position: relative; }
-  .tabcol #status { position: absolute; left: 0; top: 44px; white-space: nowrap; }   /* computer name sits under the tabs */
+  .tabcol #status { display: none !important; }   /* the author, 2026-11-12: the computer · chats · time line is removed on every screen */
   .tabs { display: flex; gap: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 3px; }
   .tabs button { height: 30px; border: 0; box-shadow: none; border-radius: 8px; font: 700 12px "Silkscreen", monospace; letter-spacing: .02em; }
   .tabs button.on { background: #2a2050; color: #fff; }
@@ -116,6 +122,8 @@
   .skills { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
   .skill { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
   .skill .sn { font: 700 14px "Silkscreen", monospace; overflow-wrap: anywhere; }
+  .skill .sn .stools { display: inline-flex; gap: 4px; vertical-align: -3px; margin-left: 6px; }   /* which app has the skill: Claude, Codex or both (same logos as the room names) */
+  .skill .sn .stools img { width: 16px; height: 16px; image-rendering: pixelated; }
   .skill .sx { font-size: 13px; }
   .skill .su { font-size: 12px; color: var(--muted); margin-top: auto; }
   .skill .su b { color: #16a34a; }
@@ -270,6 +278,7 @@
     .tools { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }   /* the author: two lines, every option visible */
     .tools > button, .tools .pick { flex: 1 1 auto; white-space: nowrap; padding: 0 10px; }
     .tools .pick button { width: 100%; padding: 0 10px; }
+    .tools .show { flex: 1 1 100%; justify-content: space-between; }
     .pick .menu { position: fixed; left: 12px; right: 12px; top: 190px; min-width: 0; max-height: calc(100vh - 330px); }
     .side { left: 0; right: 0; top: auto; bottom: 0; width: auto; max-height: none; flex-direction: row; overflow-x: auto; overflow-y: hidden; gap: 8px; padding: 8px 12px 12px; scrollbar-width: none; }
     .side::-webkit-scrollbar { display: none; }
@@ -295,9 +304,13 @@
     <button role="menuitem" data-zoom="0.25">25%</button><button role="menuitem" data-zoom="0.5">50%</button><button role="menuitem" data-zoom="1">100%</button><button role="menuitem" data-zoom="2">200%</button><button role="menuitem" data-zoom="4">400%</button><button role="menuitem" data-zoom="8">800%</button>
   </div></div>
   <button class="office-only" id="fit">Fit all</button>
-  <button class="office-only" id="activeOnly" title="Hide the rooms with no chat open">Show active only</button>
   <button class="office-only" id="colour" title="Show offline rooms in full colour">Color all rooms</button>
-  <button class="office-only" id="hideInfo" title="Show the bubbles above the agents">Show info</button>
+  <div class="show office-only" role="group" aria-label="Show"><span>Show:</span>
+    <label title="Hide the rooms with no chat open"><input type="checkbox" id="activeOnly">Active only</label>
+    <label title="The bubbles above the agents"><input type="checkbox" id="hideInfo">Info</label>
+    <label><input type="checkbox" id="showClaude" checked>Claude</label>
+    <label><input type="checkbox" id="showCodex" checked>Codex</label>
+  </div>
   </div>
   <button id="freshBtn" title="See BeeKeeper the way someone who just installed it sees it">Try as new user</button>
   <button class="usage px office-only" id="usage" hidden aria-expanded="false" title="Claude plan usage"></button>
@@ -311,7 +324,6 @@
 <div class="sed-wrap" id="studioEd" hidden></div>
 <div class="sed-wrap" id="welcome" hidden></div>
 <div class="freshbar" id="freshBar" hidden><span>New-user preview</span><button id="fbSetup">Setup</button><button id="fbReset">Start over</button><button id="fbExit">Exit</button></div>
-<div class="help">Drag or arrow keys to pan · wheel / pinch to zoom · click a name on the right to fly to them</div>
 <script type="module">
 // ───────── setup ─────────
 const canvas = document.getElementById('c');
@@ -563,11 +575,34 @@ let allColour = (() => { try { return localStorage.getItem('office-colour') === 
 { const b = document.getElementById('colour'); b.classList.toggle('on', allColour);
   b.onclick = () => { allColour = !allColour; b.classList.toggle('on', allColour); try { localStorage.setItem('office-colour', allColour ? '1' : '0'); } catch {} }; }
 let hideInfo = (() => { try { return localStorage.getItem('office-hide-info') === '1'; } catch { return false; } })();   // no bubbles over the agents
-{ const b = document.getElementById('hideInfo'); b.classList.toggle('on', !hideInfo);   // "Show info": lit while the bubbles show
-  b.onclick = () => { hideInfo = !hideInfo; b.classList.toggle('on', !hideInfo); try { localStorage.setItem('office-hide-info', hideInfo ? '1' : '0'); } catch {} }; }
+{ const b = document.getElementById('hideInfo'); b.checked = !hideInfo;   // Show: Info, ticked while the bubbles show
+  b.onchange = () => { hideInfo = !b.checked; try { localStorage.setItem('office-hide-info', hideInfo ? '1' : '0'); } catch {} }; }
+// Room review (the author, 2026-11-06): index.html?review=45,46 shows only the new rooms next to a few existing ones, each with a team working in it,
+// so a new room is judged beside the others before it is approved. Live chats are left out; nothing is saved.
+const REVIEW = (new URLSearchParams(location.search).get('review') || '').split(',').map(s => s.trim()).filter(Boolean);
+const REVIEW_TEAM = ['visual-agent', 'ux-agent', 'qa-auditor', 'brand-agent', 'ui-agent', 'i18n-agent', 'Explore', 'code-builder', 'test-writer', 'linter'];
+function reviewData(d) {
+  const names = (d.projects || []).map(p => p.name).filter(n => !HIDDEN_ROOMS.has(n)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const fresh = names.filter(n => REVIEW.some(t => n === t || n.startsWith(t + ' ')));
+  const first = names.indexOf(fresh[0]), before = names.slice(0, Math.max(0, first)).filter(n => !fresh.includes(n)).slice(-4);   // the four rooms just before, to compare with
+  const pick = [...before, ...fresh];
+  let k = 0;
+  const sessions = pick.map((p, i) => ({
+    id: 'review-' + i, project: p, title: fresh.includes(p) ? 'New room' : 'For comparison', state: i % 3 === 2 ? 'waiting' : 'working',
+    doing: fresh.includes(p) ? 'Room review' : 'Existing room', next: '', steps: [], turnSkills: [], context: null,
+    agents: [0, 1].map(() => ({ type: REVIEW_TEAM[k++ % REVIEW_TEAM.length], since: '2026-01-01T00:00:00Z', description: 'Room review' })),
+  }));
+  return { ...d, sessions, reviewFresh: fresh, reviewBefore: before };
+}
 let activeOnly = (() => { try { return localStorage.getItem('office-active-only') === '1'; } catch { return false; } })();   // offline rooms fade away
-{ const b = document.getElementById('activeOnly'); b.classList.toggle('on', activeOnly);
-  b.onclick = () => { activeOnly = !activeOnly; b.classList.toggle('on', activeOnly); try { localStorage.setItem('office-active-only', activeOnly ? '1' : '0'); } catch {} placeRooms(); fitAll(true); }; }
+if (REVIEW.length) { activeOnly = true; hideInfo = true; document.getElementById('hideInfo').checked = false; }   // review: only the rooms being checked, no bubbles over them (not saved; Show info brings them back)
+{ const b = document.getElementById('activeOnly'); b.checked = activeOnly;
+  b.onchange = () => { activeOnly = b.checked; try { localStorage.setItem('office-active-only', activeOnly ? '1' : '0'); } catch {} placeRooms(); fitAll(true); }; }
+// Show: Claude / Codex: whose chats are on the floor (both ticked by default, remembered in this browser)
+const showTool = Object.fromEntries(['claude', 'codex'].map(t => [t, (() => { try { return localStorage.getItem('office-show-' + t) !== '0'; } catch { return true; } })()]));
+const byTool = d => d && { ...d, sessions: d.sessions.filter(s => showTool[s.tool || 'claude']), agents: (d.agents || []).filter(a => { const s = d.sessions.find(x => x.id === a.session); return !s || showTool[s.tool || 'claude']; }) };
+for (const t of ['claude', 'codex']) { const b = document.getElementById(t === 'claude' ? 'showClaude' : 'showCodex'); b.checked = showTool[t];
+  b.onchange = () => { showTool[t] = b.checked; try { localStorage.setItem('office-show-' + t, b.checked ? '1' : '0'); } catch {} if (live) applyLive(byTool(live)); if (activeOnly) { placeRooms(); fitAll(true); } }; }
 // Each room has a home on the full map. With Active only on, the active rooms get a small honeycomb of their
 // own, centred where the full map's centre is, so they slide together; the camera then fits what's left.
 const numeric = (a, b) => a.localeCompare(b, undefined, { numeric: true });
@@ -690,6 +725,17 @@ function enter(w) { const sv = SAVED_SPOTS[w.id]; w.spot = sv && sv.room === w.r
 
 // ───────── live mode: the picture comes from the chat logs ─────────
 const stateMap = { working: 'typing', waiting: 'waiting', asleep: 'sleep' };
+// countdowns instead of "idle for" (the author, 2026-11-12): ready → asleep after 5 quiet minutes, asleep → leaves after 2 quiet hours (live.mjs ASLEEP_AFTER / GONE_AFTER)
+const SLEEP_MS = 5 * 60 * 1000, LEAVE_MS = 2 * 60 * 60 * 1000;
+const clock = ms => { const t = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, sec = String(t % 60).padStart(2, '0'); return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`; };
+function doingNow(w) {
+  if (w.kind === 'agent' || w.idleMs == null) return w.doing;
+  const idle = w.idleMs + (performance.now() - w.idleAt);
+  if (w.liveState === 'waiting') return `${w.doing} · sleeps in ${clock(SLEEP_MS - idle)}`;
+  if (w.liveState === 'asleep') return `Sleeping · Leaves: ${clock(LEAVE_MS - idle)}`;   // the author, 2026-11-12: "leaves: 22:20"
+  return w.doing;
+}
+setInterval(() => { for (const el of document.querySelectorAll('[data-doing]')) { const w = workers.get(el.dataset.doing); if (w) el.textContent = el.dataset.pre + doingNow(w); } }, 1000);
 const AGENT_INFO = {};               // id → { name, role }
 try { for (const a of (await (await fetch('/api/agents')).json()).agents) AGENT_INFO[a.id] = { name: a.persona || prettyName(a.name), role: a.role || 'Agent', description: a.description || '', model: a.model, tools: a.tools, source: a.source }; } catch {}
 const BUILTIN = { Explore: 'Scout', 'general-purpose': 'Helper', Plan: 'Planner', 'claude-code-guide': 'Guide' };
@@ -729,15 +775,19 @@ addEventListener('resize', placeSide);
 async function pollLive() {
   try {
     const r = await fetch('/api/live', { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status);
-    live = await r.json(); liveError = null; renderUsage(live.usage); applyLive(live);
+    live = await r.json(); if (REVIEW.length) live = reviewData(live); liveError = null; renderUsage(live.usage); applyLive(byTool(live));
   } catch (e) { liveError = e.message; }
-  document.getElementById('status').textContent = liveError ? 'offline: ' + liveError : `${live.machine} · ${live.sessions.length} chats · ${new Date(live.generatedAt).toLocaleTimeString()}`;
+  document.getElementById('status').textContent = liveError ? 'offline: ' + liveError
+    : REVIEW.length ? `Room review · new: ${live.reviewFresh.join(', ')} · next to: ${live.reviewBefore.join(', ')}`
+    : `${live.machine} · ${live.sessions.length} chats · ${new Date(live.generatedAt).toLocaleTimeString()}`;
 }
 const HIDDEN_ROOMS = new Set([]);   // the author, 2026-11-01: test projects, no room (unless a chat is live there)
 function applyLive(d) {
   const known = (d.projects || []).map(p => p.name).filter(n => !HIDDEN_ROOMS.has(n));
   const names = [...new Set([...known, ...d.sessions.map(s => s.project || '?')])];
   const info = {}; for (const p of d.projects || []) info[p.name] = p;
+  ROOM_TOOLS = {}; for (const p of d.projects || []) ROOM_TOOLS[p.name] = p.tools || [];
+  for (const s of d.sessions) { const t = ROOM_TOOLS[s.project || '?'] ||= []; const k = s.tool || 'claude'; if (!t.includes(k)) t.push(k); }
   layoutRooms(names, info);
   for (const r of rooms.values()) r.active = false;
   for (const s of d.sessions) { const r = rooms.get(s.project || '?'); if (r) r.active = true; }
@@ -755,7 +805,7 @@ function applyLive(d) {
     else if (w.room !== roomName) { w.room = roomName; w.pending = target; enter(w); }                                 // the chat moved to another project: walks into its new room
     else if (w.state !== 'walking' && w.state !== target) { w.state = target; w.since = performance.now(); }      // state changes in place
     else if (w.state === 'walking') w.pending = target;
-    w.startedAt = null; w.label = 'Claude'; w.sub = s.title; w.doing = s.doing; w.next = s.next; w.agents = []; w.steps = s.steps; w.liveState = s.state; w.turnSkills = s.turnSkills || []; w.ctx = s.context || null;
+    w.startedAt = null; w.tool = s.tool || 'claude'; w.label = s.tool === 'codex' ? 'Codex' : 'Claude'; w.sub = s.title; w.doing = s.doing; w.idleMs = s.idleMs ?? null; w.idleAt = performance.now(); w.next = s.next; w.agents = []; w.steps = s.steps; w.liveState = s.state; w.turnSkills = s.turnSkills || []; w.ctx = s.context || null;
     seen.add(s.id);
     // the agents this chat called: each one is a character of its own, beside the worker
     (s.agents || []).forEach((a, j) => {
@@ -779,7 +829,9 @@ let lastFloorSig = '', view = 'office';   // view: the open tab (office · agent
 
 // ───────── side list ─────────
 const DOT = { typing: '#22c55e', waiting: '#f59e0b', sleep: '#94a3b8', walking: '#3b82f6', leaving: '#3b82f6', wave: '#a855f7' };
-document.getElementById('legend').innerHTML = [['typing', 'Working'], ['waiting', 'Waiting for you'], ['sleep', 'Asleep (5 min quiet)'], ['walking', 'Walking in'], ['wave', 'Reporting']].map(([k, t]) => `<span><i style="background:${DOT[k]}"></i>${t}</span>`).join('');
+// the bubble's status line in its status colour (the author, 2026-11-12), a darker shade of the same hue so small text stays readable on white (4.5:1+)
+const DOT_TEXT = { typing: '#15803d', waiting: '#b45309', sleep: '#475569', walking: '#1d4ed8', leaving: '#1d4ed8', wave: '#7e22ce' };
+document.getElementById('legend').innerHTML = [['typing', 'Working'], ['waiting', 'Ready'], ['sleep', 'Asleep (5 min quiet)'], ['walking', 'Walking in'], ['wave', 'Reporting']].map(([k, t]) => `<span><i style="background:${DOT[k]}"></i>${t}</span>`).join('');
 function renderSide() {
   const box = document.getElementById('side'); box.innerHTML = '';
   const h = document.createElement('div'); h.className = 'head'; h.textContent = `${[...rooms.values()].filter(r => r.active).length} of ${rooms.size} rooms active`; box.appendChild(h);
@@ -790,7 +842,7 @@ function renderSide() {
   ordered.push(...all.filter(w => !ordered.includes(w)));
   for (const w of ordered) {
     const b = document.createElement('button'); b.className = followId === w.id ? 'on' : '';
-    b.innerHTML = `<img class="thumb" alt="" src="${roomFile(w.room)}"><span class="txt"><b><span class="dot" style="background:${DOT[w.state] || '#999'}"></span>${w.kind === 'agent' ? '↳ ' : ''}${esc(w.label)}</b><small>${esc(w.kind === 'agent' ? w.sub : w.room)} · ${esc(w.doing)}</small></span>`;
+    b.innerHTML = `<img class="thumb" alt="" src="${roomFile(w.room)}"><span class="txt"><b><span class="dot" style="background:${DOT[w.state] || '#999'}"></span>${w.kind === 'agent' ? '↳ ' : ''}${esc(w.label)}</b><small data-doing="${esc(w.id)}" data-pre="${esc((w.kind === 'agent' ? w.sub : w.room) + ' · ')}">${esc(w.kind === 'agent' ? w.sub : w.room)} · ${esc(doingNow(w))}</small></span>`;
     b.onclick = () => { followId = followId === w.id ? null : w.id; renderSide(); };
     box.appendChild(b);
   }
@@ -830,7 +882,7 @@ function portraitPic(id) {             // the same pixel close-up as on the Agen
   const fb = spritePic(id).replace(/"/g, '&quot;');
   return `<img src="/sprites/portraits/${encodeURIComponent(charOf(id))}.png?v=${V}" alt="" onerror="this.outerHTML = this.dataset.fb" data-fb="${fb}">`;
 }
-const STATE_WORD = { typing: 'Working', waiting: 'Waiting for you', sleep: 'Asleep', walking: 'Walking in', leaving: 'Finished', wave: 'Reporting' };
+const STATE_WORD = { typing: 'Working', waiting: 'Ready', sleep: 'Asleep', walking: 'Walking in', leaving: 'Finished', wave: 'Reporting' };
 function renderCard() {
   const el = document.getElementById('card');
   let w = cardId && workers.get(cardId);
@@ -854,7 +906,7 @@ function renderCard() {
         <dt>Status</dt><dd>${dot}${STATE_WORD[w.state] || ''}</dd>
         <dt>Doing</dt><dd>${esc(w.doing)}</dd>
         <dt>Project</dt><dd><bdi>${esc(w.room)}</bdi></dd>
-        <dt>Called by</dt><dd>Claude · <bdi>${esc(parent?.sub || w.chatTitle || '')}</bdi></dd>
+        <dt>Called by</dt><dd>${parent?.tool === 'codex' ? 'Codex' : 'Claude'} · <bdi>${esc(parent?.sub || w.chatTitle || '')}</bdi></dd>
         ${w.startedAt ? `<dt>On it for</dt><dd>${forHow(w.startedAt)}</dd>` : ''}
       </dl></section>`}
       <section><h3>Setup</h3><dl>
@@ -870,10 +922,10 @@ function renderCard() {
     const chat = HISTORY.chats?.[w.id] || {};
     const agents = Object.entries(chat.agents || {}).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${agentName(t)}${n > 1 ? ' ×' + n : ''}`);
     const skills = Object.entries(chat.skills || {}).sort((a, b) => b[1] - a[1]).map(([t, n]) => `/${t}${n > 1 ? ' ×' + n : ''}`);
-    html = `<div class="top"><div class="pic">${portraitPic('claude')}</div><div><h2>Claude</h2><div class="role"><bdi>${esc(w.sub)}</bdi></div><div class="bio">The main Claude of this chat. It does the work and calls agents when it needs help.</div></div></div>
+    html = `<div class="top"><div class="pic">${portraitPic('claude')}</div><div><h2>${esc(w.label)}</h2><div class="role"><bdi>${esc(w.sub)}</bdi></div><div class="bio">The main ${esc(w.label)} of this chat. It does the work and calls agents when it needs help.</div></div></div>
       <section><h3>Now</h3><dl>
         <dt>Status</dt><dd>${dot}${STATE_WORD[w.state] || ''}</dd>
-        <dt>Doing</dt><dd>${esc(w.doing)}</dd>
+        <dt>Doing</dt><dd data-doing="${esc(w.id)}" data-pre="">${esc(doingNow(w))}</dd>
         ${w.next ? `<dt>Next</dt><dd>${esc(w.next)}</dd>` : ''}
         ${w.steps ? `<dt>Steps</dt><dd>${w.steps.done} done · ${w.steps.total - w.steps.done} left</dd>` : ''}
         ${w.ctx ? `<dt>Context</dt><dd>${w.ctx.pct}% full${w.ctx.pct >= CTX_WARN ? ' · time for a fresh chat' : ''}</dd>` : ''}
@@ -918,7 +970,7 @@ function setView(v) {
   if (location.hash.slice(1) !== (view === 'office' ? '' : view)) history.replaceState(null, '', view === 'office' ? location.pathname : '#' + view);
 }
 document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => setView(b.dataset.view));
-const liveOf = id => [...workers.values()].find(w => (w.kind === 'agent' ? w.charId : 'claude') === id && w.state !== 'leaving');
+const liveOf = id => [...workers.values()].find(w => (w.kind === 'agent' ? w.charId : w.tool === 'codex' ? 'codex' : 'claude') === id && w.state !== 'leaving');
 function renderAgentsView() {
   const el = document.getElementById('viewAgents');
   const TEAM = teamGroups(), total = TEAM.reduce((n, g) => n + g[2].length, 0), busy = TEAM.flatMap(g => g[2]).filter(liveOf).length;
@@ -961,15 +1013,15 @@ function renderSkillsView() {
   const byGroup = Object.fromEntries([...SKILL_GROUPS.groups, { id: 'other' }].map(g => [g.id, []]));
   for (const sk of SKILLS) (byGroup[SKILL_GROUPS.skills[sk.id]?.group] || byGroup.other).push(sk);
   const sorted = SKILL_GROUPS.groups.some(g => byGroup[g.id].length);          // none of the known skills here: one plain list instead of "Other"
-  const groups = [...SKILL_GROUPS.groups, sorted ? { id: 'other', name: 'More skills', blurb: 'Not sorted into a group.' } : { id: 'other', name: 'Your skills', blurb: 'Instructions Claude follows for one kind of job.' }];
+  const groups = [...SKILL_GROUPS.groups, sorted ? { id: 'other', name: 'More skills', blurb: 'Not sorted into a group.' } : { id: 'other', name: 'Your skills', blurb: 'Instructions Claude or Codex follows for one kind of job.' }];
   const week = SKILLS.filter(sk => used[sk.id]?.week).length, never = SKILLS.filter(sk => !used[sk.id]).length;
   const ago = iso => { const d = (Date.now() - Date.parse(iso)) / 864e5; return d < 1 ? 'today' : d < 2 ? 'yesterday' : `${Math.round(d)} days ago`; };
-  el.innerHTML = `<h1>My skills</h1><p class="lead">${SKILLS.length} skills${sorted ? ` in ${groups.filter(g => byGroup[g.id].length).length} groups` : ''} · ${week} used this week · ${never} never used yet. A skill is a set of instructions Claude follows for one kind of job; you call one with a slash, like /ship.</p>
+  el.innerHTML = `<h1>My skills</h1><p class="lead">${SKILLS.length} skills${sorted ? ` in ${groups.filter(g => byGroup[g.id].length).length} groups` : ''} · ${week} used this week · ${never} never used yet. A skill is a set of instructions Claude or Codex follows for one kind of job; you call one with a slash, like /ship.</p>
     <div class="jump">${groups.filter(g => byGroup[g.id].length).map(g => `<a href="#skills" data-g="${g.id}">${esc(g.name)} · ${byGroup[g.id].length}</a>`).join('')}</div>` +
     groups.filter(g => byGroup[g.id].length).map(g => `<h2 id="g-${g.id}" class="gc-${g.id}">${esc(g.name)}</h2><p class="gblurb">${esc(g.blurb)}</p><div class="skills gc-${g.id}">${byGroup[g.id].sort((a, b) => (used[b.id]?.total || 0) - (used[a.id]?.total || 0) || a.id.localeCompare(b.id)).map(sk => {
       const u = used[sk.id], text = SKILL_GROUPS.skills[sk.id]?.text || String(sk.description || '').split(/(?<=\.)\s/)[0];
       const pet = petOfSkill(sk.id);
-      return `<div class="skill px${u ? '' : ' unused'}${pet ? ' haspet' : ''}" title="${esc(sk.description || '')}">${pet ? `<canvas class="spet" width="64" height="64" data-pet="${esc(pet.id)}" aria-label="${esc(pet.name)}"></canvas>` : ''}<div class="sn">/${esc(sk.id)}</div><div class="sx">${esc(text)}</div>
+      return `<div class="skill px${u ? '' : ' unused'}${pet ? ' haspet' : ''}" title="${esc(sk.description || '')}">${pet ? `<canvas class="spet" width="64" height="64" data-pet="${esc(pet.id)}" aria-label="${esc(pet.name)}"></canvas>` : ''}<div class="sn">/${esc(sk.id)}<span class="stools">${(sk.tools || ['claude']).map(t => `<img src="/tool-icons/${t === 'codex' ? 'chatgpt' : 'claude'}.png" alt="${t === 'codex' ? 'Codex' : 'Claude'}" title="${t === 'codex' ? 'Codex' : 'Claude'}">`).join('')}</span></div><div class="sx">${esc(text)}</div>
         <div class="su">${u ? (ago(u.last) === 'today' ? '<b>Used today</b> · ' : '') + `${u.total} ${u.total === 1 ? 'use' : 'uses'} · last ${ago(u.last)}` : 'Not used yet'}</div></div>`; }).join('')}</div>`).join('');
   el.querySelectorAll('.jump a').forEach(a => a.onclick = e => { e.preventDefault(); document.getElementById('g-' + a.dataset.g)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   startSkillPets();
@@ -1404,6 +1456,12 @@ function drawRooms() {
 // room names: hidden zoomed out (the map shows only the rooms), fading in from 0.8× to 1.2×, then growing
 // with the zoom up to full size. Long names wrap to the room's width.
 const NAMES_FROM = 0.8, NAMES_FULL = 1.2;
+// the author, 2026-11-11: left of each room name, the logo of the app that works there (Claude Code, ChatGPT/Codex, or both)
+let ROOM_TOOLS = {};
+const TOOL_ICON = Object.fromEntries(['claude', 'codex'].map(t => { const im = new Image(); im.src = `/tool-icons/${t === 'codex' ? 'chatgpt' : 'claude'}.png`; return [t, im]; }));
+const roomIcons = name => ['claude', 'codex'].filter(t => (ROOM_TOOLS[name] || []).includes(t)).map(t => TOOL_ICON[t]);
+const iconsWidth = (n, fs, k) => n ? n * iconSize(fs) + (n - 1) * 3 * k + 7 * k : 0;
+const iconSize = fs => Math.round(fs * 1.3 * DPR) / DPR;
 function drawRoomNames(shown) {
   const z = zoom();
   if (z < NAMES_FROM) return;
@@ -1413,9 +1471,11 @@ function drawRoomNames(shown) {
   for (const [r, o, off] of shown) {
     ctx.globalAlpha = base * r.fade;
     ctx.font = `${FB()} ${Math.round(FS() * k)}px ${PF()}`;
-    const lines = wrapText(r.label, Math.max(room.width * z * 0.9, 40) - 20 * k);
+    const icons = roomIcons(r.label), fs = Math.round(FS() * k);
+    const lines = wrapText(r.label, Math.max(room.width * z * 0.9, 40) - 20 * k - iconsWidth(icons.length, fs, k));
+    const nameLines = lines.length;
     if (off && z >= 1.5) lines.push(`offline · ${ago(r.last)}`);
-    nameBox(lines, o.x + room.width * z / 2, o.y + 14 * z, off, k);
+    nameBox(lines, o.x + room.width * z / 2, o.y + 14 * z, off, k, icons, nameLines);
   }
   ctx.restore();
 }
@@ -1424,12 +1484,21 @@ function wrapText(text, maxW) {
   for (const w of text.split(' ')) { const t = cur ? cur + ' ' + w : w; if (cur && ctx.measureText(t).width > maxW) { out.push(cur); cur = w; } else cur = t; }
   if (cur) out.push(cur); return out;
 }
-function nameBox(lines, cx, cy, dim, k) {
+function nameBox(lines, cx, cy, dim, k, icons = [], nameLines = lines.length) {
   const fs = Math.round(FS() * k), lh = Math.round(fs * 1.25), u = 2;
   ctx.font = `${FB()} ${fs}px ${PF()}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 20 * k, h = lh * lines.length + 12 * k;
+  const tw = Math.max(...lines.map(l => ctx.measureText(l).width)), iw = iconsWidth(icons.length, fs, k);
+  const w = tw + iw + 20 * k, h = lh * lines.length + 12 * k;
   const a0 = ctx.globalAlpha; if (dim) ctx.globalAlpha = a0 * 0.85;
   pixelBox(cx - w / 2, cy - h / 2, w, h, u);
+  if (icons.length) {                    // the app logos, left of the name, centred on the name's lines
+    const sz = iconSize(fs), iy = Math.round((cy - h / 2 + 6 * k + lh * nameLines / 2 - sz / 2) * DPR) / DPR;
+    let ix = Math.round((cx - w / 2 + 10 * k) * DPR) / DPR;
+    ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; if (dim) ctx.filter = 'grayscale(1) opacity(0.7)';
+    for (const im of icons) { if (im.complete && im.naturalWidth) ctx.drawImage(im, ix, iy, sz, sz); ix += sz + 3 * k; }
+    ctx.restore();
+    cx += iw / 2;                        // the text sits in the space right of the logos
+  }
   lines.forEach((l, i) => {
     const last = dim && i === lines.length - 1 && l.startsWith('offline');
     ctx.font = `${last ? 400 : FB()} ${last ? Math.round(fs * 0.8) : fs}px ${PF()}`;
@@ -1468,7 +1537,7 @@ function drawCtxBar(x, y, bw, bh, pct, now) {
   ctx.fillStyle = '#2a2050'; ctx.fillRect(x, y, bw, bh);
   ctx.fillStyle = '#ffffff'; ctx.fillRect(x + 1, y + 1, bw - 2, bh - 2);
   const fw = Math.max(1, Math.round((bw - 2) * Math.min(100, pct) / 100));
-  ctx.fillStyle = hot ? '#dc2626' : warn ? '#eab308' : '#8b7cf6';
+  ctx.fillStyle = hot ? '#dc2626' : warn ? '#eab308' : '#93c5fd';   // fine = subtle light blue (the author, 2026-11-12: the bar is there to warn, not to stand out)
   if (!blinkOff) ctx.fillRect(x + 1, y + 1, fw, bh - 2);
 }
 function drawWorker(w, now) {
@@ -1487,7 +1556,7 @@ function drawWorker(w, now) {
   drawPetTags(w, x, y, z, s, now); ctx.globalAlpha = fade;
   // bubble: who · chat · doing now. Fixed size on screen (does not grow with zoom), left aligned.
   const u = 2, fs = FS(), fb = FB();
-  const lines = [[w.label, `${fb} ${Math.round(fs * 1.1)}px`, '#1c1d22'], [w.sub, `400 ${fs}px`, '#5d6170'], [w.doing, `400 ${fs}px`, '#4b2fd6']];
+  const lines = [[w.label, `${fb} ${Math.round(fs * 1.1)}px`, '#1c1d22'], [w.sub, `400 ${fs}px`, '#5d6170'], [doingNow(w), `400 ${fs}px`, DOT_TEXT[w.state] || '#4b2fd6']];
   if (w.agents?.length) lines.push([`with ${w.agents.map(a => a.type).join(', ')}`, `400 ${fs}px`, '#a855f7']);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   const maxText = 20 * fs;
@@ -1574,6 +1643,7 @@ zoomMenu.onclick = e => {
 };
 document.getElementById('fit').onclick = () => fitAll(true);
 pollLive().then(fitAll); setInterval(pollLive, 3000);
+if (REVIEW.length) setTimeout(() => fitAll(true), 1500);   // review: fit again once the rooms have gathered
 pollHistory(); setInterval(pollHistory, 60000);
 canvas.addEventListener('wheel', e => { e.preventDefault(); stopFly(); setZoom(zoomT * Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025)), { x: e.clientX, y: e.clientY }); }, { passive: false });
 let topId = null;
