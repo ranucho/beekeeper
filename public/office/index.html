@@ -365,7 +365,7 @@ const ROOM_INDEX = FRESH ? '_preview/index.json' : 'index.json', ROOM_DEFAULT = 
 // Not picked: the agent's own character if it has one (the author's), the built-ins match by name, everyone else is Claude.
 const CHAR_KEY = 'bk-chars-' + (FRESH ? 'preview' : 'main');
 let CHAR_MAP = (() => { try { return JSON.parse(localStorage.getItem(CHAR_KEY) || '{}'); } catch { return {}; } })();
-const BUILTIN_CHARS = new Set(['general-purpose', 'Explore', 'Plan', 'claude-code-guide', 'statusline-setup']);
+const BUILTIN_CHARS = new Set(['general-purpose', 'Explore', 'Plan', 'claude-code-guide', 'statusline-setup', 'codex']);   // codex: the Codex chats' own character
 const charOf = id => CHAR_MAP[id] || (FRESH && !BUILTIN_CHARS.has(id) ? 'claude' : id);
 const saveCharMap = () => { try { localStorage.setItem(CHAR_KEY, JSON.stringify(CHAR_MAP)); } catch {} };
 // What an agent is called on screen: the name typed in Studio, else its persona (the author's agents), else its file name made readable ("code-reviewer" → "Code reviewer").
@@ -805,7 +805,7 @@ function applyLive(d) {
     else if (w.room !== roomName) { w.room = roomName; w.pending = target; enter(w); }                                 // the chat moved to another project: walks into its new room
     else if (w.state !== 'walking' && w.state !== target) { w.state = target; w.since = performance.now(); }      // state changes in place
     else if (w.state === 'walking') w.pending = target;
-    w.startedAt = null; w.tool = s.tool || 'claude'; w.label = s.tool === 'codex' ? 'Codex' : 'Claude'; w.sub = s.title; w.doing = s.doing; w.idleMs = s.idleMs ?? null; w.idleAt = performance.now(); w.next = s.next; w.agents = []; w.steps = s.steps; w.liveState = s.state; w.turnSkills = s.turnSkills || []; w.ctx = s.context || null;
+    w.startedAt = null; w.tool = s.tool || 'claude'; w.charId = w.tool === 'codex' ? 'codex' : 'claude'; w.label = s.tool === 'codex' ? 'Codex' : 'Claude'; w.sub = s.title; w.doing = s.doing; w.idleMs = s.idleMs ?? null; w.idleAt = performance.now(); w.next = s.next; w.agents = []; w.steps = s.steps; w.liveState = s.state; w.turnSkills = s.turnSkills || []; w.ctx = s.context || null;
     seen.add(s.id);
     // the agents this chat called: each one is a character of its own, beside the worker
     (s.agents || []).forEach((a, j) => {
@@ -922,7 +922,7 @@ function renderCard() {
     const chat = HISTORY.chats?.[w.id] || {};
     const agents = Object.entries(chat.agents || {}).sort((a, b) => b[1] - a[1]).map(([t, n]) => `${agentName(t)}${n > 1 ? ' ×' + n : ''}`);
     const skills = Object.entries(chat.skills || {}).sort((a, b) => b[1] - a[1]).map(([t, n]) => `/${t}${n > 1 ? ' ×' + n : ''}`);
-    html = `<div class="top"><div class="pic">${portraitPic('claude')}</div><div><h2>${esc(w.label)}</h2><div class="role"><bdi>${esc(w.sub)}</bdi></div><div class="bio">The main ${esc(w.label)} of this chat. It does the work and calls agents when it needs help.</div></div></div>
+    html = `<div class="top"><div class="pic">${portraitPic(w.charId || 'claude')}</div><div><h2>${esc(w.label)}</h2><div class="role"><bdi>${esc(w.sub)}</bdi></div><div class="bio">The main ${esc(w.label)} of this chat. It does the work and calls agents when it needs help.</div></div></div>
       <section><h3>Now</h3><dl>
         <dt>Status</dt><dd>${dot}${STATE_WORD[w.state] || ''}</dd>
         <dt>Doing</dt><dd data-doing="${esc(w.id)}" data-pre="">${esc(doingNow(w))}</dd>

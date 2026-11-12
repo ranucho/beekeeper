@@ -1,5 +1,6 @@
 [
   { "id": "claude", "name": "Claude", "role": "The main helper" },
+  { "id": "codex", "name": "Codex", "role": "The Codex helper" },
   { "id": "visual-agent", "name": "Mika Solis", "role": "Visual designer" },
   { "id": "ux-agent", "name": "Felix Moreau", "role": "UX strategist" },
   { "id": "ui-agent", "name": "Lena Kovac", "role": "UI architect" },
